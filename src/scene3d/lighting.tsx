@@ -17,13 +17,17 @@ export function Lighting({ theme, layout }: { theme: 'dark' | 'light'; layout: O
   target.position.set(centerX, 0, centerZ)
   const distance = Math.hypot(...layout.camera.offset)
   const background = day ? '#bfe0ef' : '#1a2335'
+  // The sun sits outside the shadow box (radius plus a margin) so tall objects stay inside the shadow camera.
+  const margin = 12
+  const dir = new THREE.Vector3(10, 16, 9).normalize()
+  const sunPosition: [number, number, number] = [centerX + dir.x * (radius + margin), dir.y * (radius + margin), centerZ + dir.z * (radius + margin)]
   const near = distance + radius * 1.3
   return <>
     <color attach="background" args={[background]}/>
     <fog attach="fog" args={[background, near, near + 45]}/>
     <hemisphereLight args={[day ? '#fff4e0' : '#7f95bd', day ? '#5d7a4c' : '#1e2620', day ? 1.1 : 0.32]}/>
     <primitive object={target}/>
-    <directionalLight target={target} position={[centerX + 10, 16, centerZ + 9]} intensity={day ? 2.4 : 0.75} color={day ? '#fff1d6' : '#ff9a5a'} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-camera-left={-radius} shadow-camera-right={radius} shadow-camera-top={radius} shadow-camera-bottom={-radius} shadow-camera-far={radius * 2 + 40}/>
+    <directionalLight target={target} position={sunPosition} intensity={day ? 2.4 : 0.75} color={day ? '#fff1d6' : '#ff9a5a'} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-camera-left={-radius} shadow-camera-right={radius} shadow-camera-top={radius} shadow-camera-bottom={-radius} shadow-camera-near={0.5} shadow-camera-far={(radius + margin) * 2 + 10}/>
     <ambientLight intensity={day ? 0.35 : 0.14} color={day ? '#ffffff' : '#8fa4d8'}/>
   </>
 }

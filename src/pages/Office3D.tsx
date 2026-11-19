@@ -4,8 +4,8 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { officeStateBadge } from '../office-state.ts'
 import { agentLook } from '../agents.ts'
-import { clampTarget, createLayout, type OfficeLayout, type Placement, type Vec3 } from '../office3d-layout.ts'
-import { idlePlan, placementFor } from '../office3d-placement.ts'
+import { clampTarget, createLayout, type OfficeLayout, type Placement, type RoomId, type Vec3 } from '../office3d-layout.ts'
+import { idlePlan, occupiedRoomsFor, placementFor } from '../office3d-placement.ts'
 import { walkPath } from '../office3d-walk.ts'
 import { Environment } from '../scene3d/environment.tsx'
 import { Lighting } from '../scene3d/lighting.tsx'
@@ -64,10 +64,9 @@ function Character({ station, placement, layout, onSelect, anchor }: { station: 
     const swing = walking ? Math.sin(time * 10) * 0.6 : 0
     const arrived = !walking && path.current.length === 0
     const lying = arrived && placement.pose === 'lie'
-    const onFloor = arrived && placement.pose === 'floor'
-    // In bed (or the hammock) the body lines up with it exactly, not wherever the walk left it.
+    // In bed the body lines up with it exactly, not wherever the walk left it.
     if (lying) group.rotation.y = placement.facing
-    const seated = !walking && (placement.seated || onFloor)
+    const seated = !walking && placement.seated
     if (leftLeg.current && rightLeg.current) {
       leftLeg.current.rotation.x = lying ? 0 : seated ? -Math.PI / 2.2 : swing
       rightLeg.current.rotation.x = lying ? 0 : seated ? -Math.PI / 2.2 : -swing
@@ -83,7 +82,7 @@ function Character({ station, placement, layout, onSelect, anchor }: { station: 
       body.current.rotation.x += ((lying ? -Math.PI / 2 : 0) - body.current.rotation.x) * 0.2
       const talk = station.state === 'Collaborating' && !walking ? Math.abs(Math.sin(time * 5)) * 0.03 : 0
       const breathe = station.state === 'Idle' ? Math.sin(time * (lying ? 1.2 : 2)) * 0.015 : 0
-      body.current.position.y = lying ? (placement.height ?? 0.5) + 0.16 + breathe : (onFloor ? -0.5 : seated ? -0.14 : 0) + talk + breathe
+      body.current.position.y = lying ? (placement.height ?? 0.5) + 0.16 + breathe : (seated ? -0.14 : 0) + talk + breathe
     }
   })
 
@@ -289,12 +288,16 @@ export default function Office3D({ stations, onSelect }: { stations: OfficeStati
   // Agents at the meeting table take the next free place around it.
   const meetingOrder = stations.filter((station) => station.roomPosition === 'meeting-area').map((station) => station.id)
   const placement = (station: OfficeStation) => wandering(station)?.placement ?? placementFor(station, layout, Math.max(0, meetingOrder.indexOf(station.id)))
+  const occupiedKey = occupiedRoomsFor(stations.map((station) => placement(station).position), layout).join(',')
+  const occupiedRooms = useMemo(() => (occupiedKey ? occupiedKey.split(',') : []) as RoomId[], [occupiedKey])
+  // Hover cursors are set by the scene; make sure none outlives it (a click on a link unmounts the canvas).
+  useEffect(() => () => { document.body.style.cursor = '' }, [])
   const occupiedSeats = new Set(stations.filter((station) => station.room === 'Workspace' && station.roomPosition !== 'meeting-area' && station.state !== 'Offline').map((station) => station.seat))
   const navigate = (hash: string) => { window.location.hash = hash }
   return <div className="office-3d" ref={setKeyTarget} tabIndex={0} role="region" aria-label="3D office. Drag to pan, scroll to zoom, arrow keys pan when focused.">
     <Canvas shadows dpr={[1, 2]} camera={{ position: [-3, 13, 16], fov: 40, near: 0.5, far: 300 }} gl={{ antialias: true }}>
       <Lighting theme={theme} layout={layout}/>
-      <Environment night={theme === 'dark'} layout={layout} onNavigate={navigate}/>
+      <Environment night={theme === 'dark'} layout={layout} onNavigate={navigate} occupiedRooms={occupiedRooms}/>
       {layout.desks.map((position, index) => <WorkDesk key={index} position={position} active={occupiedSeats.has(index + 1)} withChair/>)}
       {stations.map((station) => <Character key={station.id} station={station} placement={placement(station)} layout={layout} onSelect={onSelect} anchor={register(anchors, `agent-${station.id}`)}/>)}
       <LabelProjector anchors={anchors} labels={labels}/>

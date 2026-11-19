@@ -1,4 +1,4 @@
-import { DEFAULT_LAYOUT, type IdleStop, type OfficeLayout, type Placement } from './office3d-layout'
+import { DEFAULT_LAYOUT, type IdleStop, type OfficeLayout, type Placement, type RoomId, type Vec3 } from './office3d-layout'
 import type { OfficeStation } from './types.ts'
 
 /** The n-th place in the meeting room (0-based): the whiteboard, then the chairs, then standing room. */
@@ -7,12 +7,22 @@ export function meetingSeat(index: number, layout: OfficeLayout = DEFAULT_LAYOUT
   return seats[index % seats.length]
 }
 
+/** A usable 1-based seat number: whole, and at least 1 (NaN and fractions must not index arrays). */
+const wholeSeat = (seat: number) => Math.max(Number.isFinite(seat) ? Math.trunc(seat) : 1, 1)
+
+/** The rooms that have someone in them: a position on a shared edge counts for either room. */
+export function occupiedRoomsFor(positions: Vec3[], layout: OfficeLayout = DEFAULT_LAYOUT): RoomId[] {
+  return layout.rooms
+    .filter((room) => positions.some(([x, , z]) => x >= room.minX && x <= room.maxX && z >= room.minZ && z <= room.maxZ))
+    .map((room) => room.id)
+}
+
 /**
  * Where a station stands: a desk (seat n uses desk n; out-of-range seats wrap), a place at the
  * meeting table (`meetingIndex` counts the agents already there), or a lounge seat.
  */
 export function placementFor(station: OfficeStation, layout: OfficeLayout = DEFAULT_LAYOUT, meetingIndex = 0): Placement {
-  const seat = Math.max(station.seat, 1) - 1
+  const seat = wholeSeat(station.seat) - 1
   if (station.room === 'Lounge') {
     const seats = layout.lounge.seats
     const spot = seats[seat % seats.length]
@@ -48,7 +58,7 @@ export function idlePlan(seats: number[], time: number, layout: OfficeLayout = D
     plan.set(seat, { stop: beds, placement: beds.spots[used % beds.spots.length] })
   }
   for (const seat of [...seats].filter((item) => !plan.has(item)).sort((a, b) => a - b)) {
-    const start = step + (Math.max(seat, 1) - 1) * 3
+    const start = step + (wholeSeat(seat) - 1) * 3
     let stop = stopAt(start)
     for (let offset = 0; offset < IDLE_ROUTE.length; offset += 1) {
       const candidate = stopAt(start + offset)

@@ -31,7 +31,7 @@ export interface Door { between: [RoomId | 'outside', RoomId | 'outside']; from:
  * otherwise standing, or sitting on a chair when `seated`. `facing` is a rotation about y, where 0
  * looks towards +z (the street).
  */
-export interface Placement { position: Vec3; facing: number; seated: boolean; label?: string; pose?: 'lie' | 'floor'; height?: number }
+export interface Placement { position: Vec3; facing: number; seated: boolean; label?: string; pose?: 'lie'; height?: number }
 export interface IdleStop { key: string; label: string; spots: Placement[] }
 
 export interface OfficeLayout {
@@ -115,8 +115,11 @@ function cutWall(from: [number, number], to: [number, number], doors: Door[]): W
 }
 
 /** The office for a given number of agents: one desk and one bed each, rooms on a grid around them. */
+/** Upper bound on the crew the building is sized for (guards against absurd or infinite counts). */
+const MAX_AGENTS = 200
+
 export function createLayout(agentCount: number): OfficeLayout {
-  const agents = Math.max(1, Math.floor(agentCount) || 1)
+  const agents = Math.min(MAX_AGENTS, Math.max(1, Math.floor(agentCount) || 1))
   const columns = Math.max(MIN_DESK_COLUMNS, Math.ceil(agents / DESK_ROWS_Z.length))
   const K = columns * DESK_PITCH + 2 * SIDE_MARGIN // workspace width
   const columnX = (column: number) => SIDE_MARGIN + 1 + column * DESK_PITCH

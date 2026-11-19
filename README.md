@@ -71,7 +71,7 @@ Checks: `npm run lint`, `npm test`, `npm run build`.
   - **Server Room**: a rack of servers. It is decorative and links to the cron Calendar page (`#/calendar`)
   - outdoors: a yard with trees, a sidewalk with street lamps, a road, the Merah Putih flag, and a bakso (meatball soup) cart and a kopi keliling (coffee bike), each with its vendor
 
-  The camera is fixed at about 55 degrees and the scene cannot be rotated. **Drag** to pan (clamped to the grounds), **scroll** to zoom, or use the **arrow keys** when the view has focus; **Reset view** returns to the starting view. Clicking the board or the server rack opens its page; for the keyboard there are two links, hidden until focused, "Open Papan Misi (Kanban)" and "Open Server Room (cron)". Agents walk along paths through the doors and route through the doors and around the main furniture.
+  The camera is fixed at about 55 degrees and the scene cannot be rotated. **Drag** to pan (clamped to the grounds), **scroll** to zoom, or use the **arrow keys** when the view has focus; **Reset view** returns to the starting view. Clicking the board or the server rack opens its page; for the keyboard there are two links, hidden until focused, "Open Papan Misi (Kanban)" and "Open Server Room (cron)". Agents walk along paths that route through the doors and around the main furniture.
 
   It follows the theme: day in light mode, evening in dark mode, when the office lights, street lamps and cart lamps light up. Only procedural textures are used, with no image or model files.
 

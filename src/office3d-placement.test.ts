@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createLayout, DEFAULT_LAYOUT, type Rect, type Vec3 } from './office3d-layout'
-import { IDLE_ROUTE, IDLE_STOP_MS, idlePlan, idleStop, meetingSeat, placementFor } from './office3d-placement'
+import { IDLE_ROUTE, IDLE_STOP_MS, idlePlan, idleStop, meetingSeat, occupiedRoomsFor, placementFor } from './office3d-placement'
 import type { OfficeStation } from './types.ts'
 
 const station = (overrides: Partial<OfficeStation>): OfficeStation => ({
@@ -100,5 +100,26 @@ describe('idle plan', () => {
     expect(three.placement.pose).toBe('lie')
     expect(key(one.placement)).not.toBe(key(three.placement))
     expect(plan.get(2)!.placement.pose).not.toBe('lie')
+  })
+})
+
+describe('hardening and occupied rooms', () => {
+  it('does not throw on NaN or fractional seats', () => {
+    for (const seat of [NaN, 1.5, -3, Infinity]) {
+      expect(() => placementFor(station({ seat }))).not.toThrow()
+      expect(() => placementFor(station({ seat, room: 'Lounge' }))).not.toThrow()
+      expect(() => idlePlan([seat], 0)).not.toThrow()
+      expect(() => idleStop(seat, 0)).not.toThrow()
+    }
+    expect(placementFor(station({ seat: 1.5 })).position).toEqual(placementFor(station({ seat: 1 })).position)
+    expect(placementFor(station({ seat: NaN })).position).toEqual(placementFor(station({ seat: 1 })).position)
+  })
+
+  it('lists exactly the rooms that have a station in them', () => {
+    const kerja = placementFor(station({ seat: 1 })).position
+    const rapat = meetingSeat(1).position
+    expect(occupiedRoomsFor([kerja, rapat]).sort()).toEqual(['kerja', 'rapat'])
+    expect(occupiedRoomsFor([kerja])).toEqual(['kerja'])
+    expect(occupiedRoomsFor([])).toEqual([])
   })
 })

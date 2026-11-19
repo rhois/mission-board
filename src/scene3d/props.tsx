@@ -379,19 +379,6 @@ export function StreetLamp({ position, night = false }: { position: Vec3; night?
 // ---------------------------------------------------------------------------
 // Lighting and climate
 
-/** Suspended linear LED fixture, the usual office light: cool white, brighter in the evening. */
-export function OfficeLight({ position, rotation = 0, night }: { position: Vec3; rotation?: number; night: boolean }) {
-  return <Group position={position} rotation={rotation}>
-    {[-0.55, 0.55].map((x) => <Cyl key={x} position={[x, 0.3, 0]} radius={0.006} height={0.6} color="#8b9297"/>)}
-    <RBox position={[0, 0, 0]} size={[1.4, 0.06, 0.16]} radius={0.02} color="#d9dde0" metalness={0.4} roughness={0.35} shadow={false}/>
-    <mesh position={[0, -0.032, 0]} rotation={[Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[1.32, 0.11]}/>
-      <meshStandardMaterial color="#ffffff" emissive="#f2f6ff" emissiveIntensity={night ? 2.6 : 0.9} side={THREE.DoubleSide}/>
-    </mesh>
-    {night && <pointLight position={[0, -0.3, 0]} color="#f1f5ff" intensity={8} distance={7} decay={2}/>}
-  </Group>
-}
-
 /** Wall-mounted split AC with a gently swinging louvre. */
 export function AirConditioner({ position, rotation = 0 }: { position: Vec3; rotation?: number }) {
   const louvre = useRef<THREE.Mesh>(null)
@@ -491,7 +478,7 @@ type ClickHandler = (() => void) | undefined
 function linkHandlers(onClick: ClickHandler) {
   if (!onClick) return {}
   return {
-    onClick: (event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); if (event.delta <= 6) onClick() },
+    onClick: (event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); if (event.delta <= 6) { document.body.style.cursor = ''; onClick() } },
     onPointerOver: (event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); document.body.style.cursor = 'pointer' },
     onPointerOut: () => { document.body.style.cursor = '' },
   }

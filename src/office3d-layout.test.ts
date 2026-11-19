@@ -159,3 +159,11 @@ describe('office grid', () => {
     expect(DEFAULT_LAYOUT).toEqual(createLayout(3))
   })
 })
+
+describe('createLayout limits', () => {
+  it('clamps absurd crew sizes instead of throwing', () => {
+    expect(() => createLayout(Infinity)).not.toThrow()
+    expect(createLayout(Infinity).agentCount).toBe(200)
+    expect(createLayout(NaN).agentCount).toBe(1)
+  })
+})
