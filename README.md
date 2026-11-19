@@ -6,8 +6,6 @@
 
 ![The same office in the evening theme, with the lamps lit](docs/screenshots/office-night.png)
 
-![Mission control statistics in the evening theme](docs/screenshots/mission-control.png)
-
 ## Install
 
 Works on macOS, Linux and Windows through WSL2. You need the Hermes Agent CLI (`hermes`) installed; `opencode` is optional. The installer downloads its own Node.js if you do not have Node.js 20 or newer.
@@ -65,7 +63,7 @@ Checks: `npm run lint`, `npm test`, `npm run build`.
 
   The view switches between **3D** (the default) and **2D**, remembered per browser; browsers without WebGL stay on 2D. The 2D view is the original CSS-only office and is unchanged. The 3D view (three.js via React Three Fiber, loaded only when used) is one floor, laid out as a grid plan of seven rooms with an Indonesian touch:
   - **Ruang Kerja**: the workspace, with hot desking (one unlabeled desk per agent; the room grows with the crew)
-  - **Ruang Rapat**: a meeting room with a long table and a chair for every agent, a TV showing a slide and a whiteboard
+  - **Ruang Rapat**: a meeting room with a long table with six chairs, a presenter spot at the whiteboard and standing room (it wraps when full), a TV showing a slide and a whiteboard
   - **Lounge**: a sofa area facing a TV, with a pantry corner (a galon water-jug dispenser and a kitchen counter)
   - **Game Room**: ping-pong, two arcade machines, beanbags and a karambol (carrom) board
   - **Kamar Tidur**: a bedroom with one bed per agent
@@ -73,7 +71,7 @@ Checks: `npm run lint`, `npm test`, `npm run build`.
   - **Server Room**: a rack of servers. It is decorative and links to the cron Calendar page (`#/calendar`)
   - outdoors: a yard with trees, a sidewalk with street lamps, a road, the Merah Putih flag, and a bakso (meatball soup) cart and a kopi keliling (coffee bike), each with its vendor
 
-  The camera is fixed at about 55 degrees and the scene cannot be rotated. **Drag** to pan (clamped to the grounds), **scroll** to zoom, or use the **arrow keys** when the view has focus; **Reset view** returns to the starting view. Clicking the board or the server rack opens its page; for the keyboard there are two links, hidden until focused, "Open Papan Misi (Kanban)" and "Open Server Room (cron)". Agents walk along paths through the doors and never through walls or furniture.
+  The camera is fixed at about 55 degrees and the scene cannot be rotated. **Drag** to pan (clamped to the grounds), **scroll** to zoom, or use the **arrow keys** when the view has focus; **Reset view** returns to the starting view. Clicking the board or the server rack opens its page; for the keyboard there are two links, hidden until focused, "Open Papan Misi (Kanban)" and "Open Server Room (cron)". Agents walk along paths through the doors and route through the doors and around the main furniture.
 
   It follows the theme: day in light mode, evening in dark mode, when the office lights, street lamps and cart lamps light up. Only procedural textures are used, with no image or model files.
 

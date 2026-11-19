@@ -11,7 +11,7 @@
 //       │       ═══ │       │       │
 //  z  0 ├───────────┼═══────┼───────┤
 //  kopi │ Kerja     │ Rapat │Misi│Srv│
-//       │ (work)    ║ (mtg) ║    ║   │
+//       │           ║       ║    ║   │
 //  z  8 └────═══────┴───────┴────┴───┘
 //         yard · flag · trees
 //         sidewalk · street lamps
