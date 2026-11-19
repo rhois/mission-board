@@ -4,8 +4,11 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { officeStateBadge } from '../office-state.ts'
 import { agentLook } from '../agents.ts'
-import { clampTarget, createLayout, FLOOR_HEIGHT, floorOf, GAME_ROOM, idlePlan, placementFor, walkPath3, type Floor, type OfficeLayout, type Placement, type Vec3 } from '../office3d-layout.ts'
+import { clampTarget, createLayout, type OfficeLayout, type Placement, type Vec3 } from '../office3d-layout.ts'
+import { idlePlan, placementFor } from '../office3d-placement.ts'
+import { walkPath } from '../office3d-walk.ts'
 import { Environment } from '../scene3d/environment.tsx'
+import { Lighting } from '../scene3d/lighting.tsx'
 import { RBox, WorkDesk } from '../scene3d/props.tsx'
 import type { OfficeStation } from '../types.ts'
 
@@ -14,14 +17,7 @@ import type { OfficeStation } from '../types.ts'
 
 type Registry<T> = MutableRefObject<Map<string, T>>
 
-/** Ground-floor spots outside the building (gang, sidewalk, yard) stay in view from lantai 2. */
-function outdoors(x: number, z: number, layout: OfficeLayout): boolean {
-  const { minX, maxX, maxZ } = layout.building
-  const inGameRoom = x > GAME_ROOM.minX && x < GAME_ROOM.maxX && z > GAME_ROOM.minZ && z < GAME_ROOM.maxZ
-  return x < minX || z > maxZ || (x > maxX && !inGameRoom)
-}
-
-function Character({ station, placement, layout, floor, onSelect, anchor }: { station: OfficeStation; placement: Placement; layout: OfficeLayout; floor: Floor; onSelect: (station: OfficeStation, trigger: HTMLElement | null) => void; anchor: (object: THREE.Object3D | null) => void }) {
+function Character({ station, placement, layout, onSelect, anchor }: { station: OfficeStation; placement: Placement; layout: OfficeLayout; onSelect: (station: OfficeStation, trigger: HTMLElement | null) => void; anchor: (object: THREE.Object3D | null) => void }) {
   const root = useRef<THREE.Group>(null)
   const body = useRef<THREE.Group>(null)
   const leftLeg = useRef<THREE.Mesh>(null)
@@ -39,7 +35,7 @@ function Character({ station, placement, layout, floor, onSelect, anchor }: { st
   useEffect(() => {
     const group = root.current
     if (!group) return
-    path.current = walkPath3([group.position.x, group.position.y, group.position.z], placement.position, layout).map(([px, py, pz]) => new THREE.Vector3(px, py, pz))
+    path.current = walkPath([group.position.x, group.position.y, group.position.z], placement.position, layout).map(([px, py, pz]: Vec3) => new THREE.Vector3(px, py, pz))
     // placement.position is captured through `destination`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destination])
@@ -64,9 +60,6 @@ function Character({ station, placement, layout, floor, onSelect, anchor }: { st
         }
       }
     }
-    // Only the floor in view is drawn; from lantai 2 the agents outside on the ground stay visible.
-    const upstairs = group.position.y > FLOOR_HEIGHT / 2
-    group.visible = floor === 2 ? upstairs || outdoors(group.position.x, group.position.z, layout) : !upstairs
     if (!walking) group.rotation.y += Math.atan2(Math.sin(placement.facing - group.rotation.y), Math.cos(placement.facing - group.rotation.y)) * 0.12
     const swing = walking ? Math.sin(time * 10) * 0.6 : 0
     const arrived = !walking && path.current.length === 0
@@ -162,8 +155,8 @@ function LabelProjector({ anchors, labels }: { anchors: Registry<THREE.Object3D>
 
 export interface ViewHandle { reset: () => void }
 
-/** Orbit (drag), pan (right-drag, two fingers, arrow keys or pan mode) and zoom, kept in bounds. */
-const Controls = forwardRef<ViewHandle, { panMode: boolean; keyTarget: HTMLElement | null; layout: OfficeLayout; elevation: number }>(function Controls({ panMode, keyTarget, layout, elevation }, handle) {
+/** Fixed-azimuth view: drag (or one finger, or arrow keys) pans, scroll zooms; the target stays inside the grounds. */
+const Controls = forwardRef<ViewHandle, { keyTarget: HTMLElement | null; layout: OfficeLayout }>(function Controls({ keyTarget, layout }, handle) {
   const { camera, gl, size } = useThree()
   const controls = useRef<OrbitControls | null>(null)
   const { target: cameraTarget, offset: cameraOffset } = layout.camera
@@ -173,7 +166,7 @@ const Controls = forwardRef<ViewHandle, { panMode: boolean; keyTarget: HTMLEleme
     const offset = new THREE.Vector3(...cameraOffset)
     // Narrow (portrait) views need to back off so the whole building fits across.
     offset.setLength(offset.length() * Math.max(1, 1.2 / aspect))
-    const focus = target.clone().set(aspect < 1 ? cameraTarget[0] - 1.4 : cameraTarget[0], cameraTarget[1] + elevation, aspect < 1 ? 0.8 : cameraTarget[2])
+    const focus = target.clone().set(aspect < 1 ? cameraTarget[0] - 1.4 : cameraTarget[0], cameraTarget[1], aspect < 1 ? 0.8 : cameraTarget[2])
     const orbit = controls.current
     // An undamped update applies and clears any momentum left from an earlier drag,
     // so it has to happen before the camera is placed, not after.
@@ -184,16 +177,17 @@ const Controls = forwardRef<ViewHandle, { panMode: boolean; keyTarget: HTMLEleme
     orbit.target.copy(focus)
     orbit.update()
     orbit.enableDamping = true
-  }, [camera, size.width, size.height, target, cameraOffset, cameraTarget, elevation])
+  }, [camera, size.width, size.height, target, cameraOffset, cameraTarget])
 
   useEffect(() => {
     const orbit = new OrbitControls(camera, gl.domElement)
     orbit.enableDamping = true
     orbit.screenSpacePanning = false // pan across the floor, not up into the sky
+    orbit.enableRotate = false // the azimuth and the ~55° pitch stay fixed
+    orbit.mouseButtons.LEFT = THREE.MOUSE.PAN
+    orbit.mouseButtons.RIGHT = THREE.MOUSE.PAN
+    orbit.touches.ONE = THREE.TOUCH.PAN
     orbit.minDistance = 5
-    orbit.maxDistance = 48
-    orbit.minPolarAngle = 0.2
-    orbit.maxPolarAngle = 1.32
     orbit.keyPanSpeed = 25
     controls.current = orbit
     frame()
@@ -202,13 +196,13 @@ const Controls = forwardRef<ViewHandle, { panMode: boolean; keyTarget: HTMLEleme
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, gl])
   useEffect(() => { frame() }, [frame])
+  // Zoom out far enough to see the whole scene at any window shape (the framing itself backs off in portrait).
   useEffect(() => {
     const orbit = controls.current
     if (!orbit) return
-    orbit.mouseButtons.LEFT = panMode ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE
-    orbit.mouseButtons.RIGHT = panMode ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN
-    orbit.touches.ONE = panMode ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE
-  }, [panMode])
+    const aspect = size.width / Math.max(size.height, 1)
+    orbit.maxDistance = Math.hypot(...cameraOffset) * Math.max(1, 1.2 / aspect) * 1.4
+  }, [cameraOffset, size.width, size.height])
   useEffect(() => {
     const orbit = controls.current
     if (!orbit || !keyTarget) return
@@ -256,23 +250,6 @@ function useThemeName(): 'dark' | 'light' {
   return theme
 }
 
-/** Day in the light theme; evening in the dark theme, when the lamps in the scene switch on. */
-function Lighting({ theme }: { theme: 'dark' | 'light' }) {
-  const day = theme === 'light'
-  return <>
-    <color attach="background" args={[day ? '#bfe0ef' : '#1a2335']}/>
-    <fog attach="fog" args={[day ? '#bfe0ef' : '#1a2335', 38, 75]}/>
-    <hemisphereLight args={[day ? '#fff4e0' : '#7f95bd', day ? '#5d7a4c' : '#1e2620', day ? 1.1 : 0.32]}/>
-    <directionalLight position={[10, 16, 9]} intensity={day ? 2.4 : 0.75} color={day ? '#fff1d6' : '#ff9a5a'} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-camera-left={-16} shadow-camera-right={16} shadow-camera-top={16} shadow-camera-bottom={-16} shadow-camera-far={60}/>
-    <ambientLight intensity={day ? 0.35 : 0.14} color={day ? '#ffffff' : '#8fa4d8'}/>
-  </>
-}
-
-const FLOORS: { floor: Floor; label: string; title: string }[] = [
-  { floor: 2, label: 'Kamar & Balkon', title: 'Lantai 2: bedroom, lesehan and balcony' },
-  { floor: 1, label: 'Kantor', title: 'Lantai 1: office, lounge, pantry and game room' },
-]
-const FLOOR_KEY = 'mb.officeFloor'
 const SLEEP_KEY = 'mb.sleep'
 
 /** An on/off preference kept per browser. */
@@ -284,51 +261,40 @@ function useStoredFlag(key: string): [boolean, (value: boolean) => void] {
   }]
 }
 
-function useFloor(): [Floor, (floor: Floor) => void] {
-  const [floor, setFloor] = useState<Floor>(() => {
-    try { return localStorage.getItem(FLOOR_KEY) === '2' ? 2 : 1 } catch { return 1 }
-  })
-  return [floor, (next: Floor) => {
-    setFloor(next)
-    try { localStorage.setItem(FLOOR_KEY, String(next)) } catch { /* per-browser convenience only */ }
-  }]
-}
-
 export default function Office3D({ stations, onSelect }: { stations: OfficeStation[]; onSelect: (station: OfficeStation, trigger: HTMLElement | null) => void }) {
   const anchors = useRef(new Map<string, THREE.Object3D>())
   const labels = useRef(new Map<string, HTMLElement>())
   const view = useRef<ViewHandle>(null)
-  const [panMode, setPanMode] = useState(false)
-  const [keyTarget, setKeyTarget] = useState<HTMLElement | null>(null)
+    const [keyTarget, setKeyTarget] = useState<HTMLElement | null>(null)
   const theme = useThemeName()
-  const [floor, setFloor] = useFloor()
   const [sleepMode, setSleepMode] = useStoredFlag(SLEEP_KEY)
   const now = useClock(2000)
-  // One unlabeled desk per agent (hot desking); the building is sized for the crew.
+  // One unlabeled desk per agent (hot desking); the building is sized for the crew (at least one).
   const layout = useMemo(() => createLayout(stations.length), [stations.length])
-  // Idle agents wander between the lounge, the game room, the pantry, the street food and
-  // lantai 2 (decorative only), spread so no two share a spot. With sleep mode on, every idle
-  // agent goes to bed upstairs instead.
+  // Idle agents wander between the lounge, the game room, the pantry and the street food, spread
+  // so no two share a spot. With sleep mode on, every idle agent goes to bed in Kamar Tidur instead.
   const idleSeats = stations.filter((station) => station.state === 'Idle' && station.room === 'Lounge').map((station) => station.seat)
   const plan = idlePlan(idleSeats, now, layout, sleepMode ? idleSeats : [])
   const wandering = (station: OfficeStation) => station.state === 'Idle' && station.room === 'Lounge' ? plan.get(station.seat) : undefined
   // Agents at the meeting table take the next free place around it.
   const meetingOrder = stations.filter((station) => station.roomPosition === 'meeting-area').map((station) => station.id)
   const placement = (station: OfficeStation) => wandering(station)?.placement ?? placementFor(station, layout, Math.max(0, meetingOrder.indexOf(station.id)))
-  const floorCount = (value: Floor) => stations.filter((station) => floorOf(placement(station).position) === value).length
   const occupiedSeats = new Set(stations.filter((station) => station.room === 'Workspace' && station.roomPosition !== 'meeting-area' && station.state !== 'Offline').map((station) => station.seat))
-  return <div className="office-3d" ref={setKeyTarget} tabIndex={0} role="region" aria-label="3D office. Drag to rotate, right-drag or two fingers to pan, scroll to zoom, arrow keys pan when focused. Page Up and Page Down change floors." onKeyDown={(event) => {
-    if (event.key === 'PageUp' || event.key === 'PageDown') { event.preventDefault(); setFloor(event.key === 'PageUp' ? 2 : 1) }
-  }}>
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [-3, 13, 16], fov: 40, near: 0.5, far: 150 }} gl={{ antialias: true }}>
-      <Lighting theme={theme}/>
-      <Environment night={theme === 'dark'} layout={layout} floor={floor}/>
-      {floor === 1 && layout.desks.map((position, index) => <WorkDesk key={index} position={position} active={occupiedSeats.has(index + 1)} withChair/>)}
-      {stations.map((station) => <Character key={station.id} station={station} placement={placement(station)} layout={layout} floor={floor} onSelect={onSelect} anchor={register(anchors, `agent-${station.id}`)}/>)}
+  const navigate = (hash: string) => { window.location.hash = hash }
+  return <div className="office-3d" ref={setKeyTarget} tabIndex={0} role="region" aria-label="3D office. Drag to pan, scroll to zoom, arrow keys pan when focused.">
+    <Canvas shadows dpr={[1, 2]} camera={{ position: [-3, 13, 16], fov: 40, near: 0.5, far: 300 }} gl={{ antialias: true }}>
+      <Lighting theme={theme} layout={layout}/>
+      <Environment night={theme === 'dark'} layout={layout} onNavigate={navigate}/>
+      {layout.desks.map((position, index) => <WorkDesk key={index} position={position} active={occupiedSeats.has(index + 1)} withChair/>)}
+      {stations.map((station) => <Character key={station.id} station={station} placement={placement(station)} layout={layout} onSelect={onSelect} anchor={register(anchors, `agent-${station.id}`)}/>)}
       <LabelProjector anchors={anchors} labels={labels}/>
-      <Controls key={layout.deskCount} ref={view} panMode={panMode} keyTarget={keyTarget} layout={layout} elevation={floor === 2 ? FLOOR_HEIGHT : 0}/>
+      <Controls key={layout.agentCount} ref={view} keyTarget={keyTarget} layout={layout}/>
     </Canvas>
     <div className="office-3d-labels">
+      <div className="office-3d-links">
+        <button type="button" onClick={() => navigate('#/task-board')}>Open Papan Misi (Kanban)</button>
+        <button type="button" onClick={() => navigate('#/calendar')}>Open Server Room (cron)</button>
+      </div>
       {stations.map((station) => {
         const badge = officeStateBadge(station.state)
         const busy = ['Working', 'Reviewing', 'Collaborating'].includes(station.state)
@@ -340,14 +306,8 @@ export default function Office3D({ stations, onSelect }: { stations: OfficeStati
         </button>
       })}
     </div>
-    <div className="office-3d-floors" role="group" aria-label="Floors">
-      {FLOORS.map((item) => <button key={item.floor} type="button" className={floor === item.floor ? 'active' : ''} aria-pressed={floor === item.floor} onClick={() => setFloor(item.floor)} title={`${item.title} (Page ${item.floor === 2 ? 'Up' : 'Down'})`}>
-        <b>{item.floor}</b><span>{item.label}</span><small>{floorCount(item.floor)}</small>
-      </button>)}
-    </div>
     <div className="office-3d-tools">
-      <button type="button" className={sleepMode ? 'active sleep' : ''} aria-pressed={sleepMode} onClick={() => { setSleepMode(!sleepMode); if (!sleepMode && idleSeats.length > 0) setFloor(2) }} title="Send every idle agent to bed on lantai 2">💤 Tidur</button>
-      <button type="button" className={panMode ? 'active' : ''} aria-pressed={panMode} onClick={() => setPanMode((value) => !value)} title="Drag moves the view instead of rotating it">✥ Geser</button>
+      <button type="button" className={sleepMode ? 'active sleep' : ''} aria-pressed={sleepMode} onClick={() => setSleepMode(!sleepMode)} title="Send every idle agent to bed in Kamar Tidur">💤 Tidur</button>
       <button type="button" onClick={() => view.current?.reset()} title="Back to the starting view">↺ Reset view</button>
     </div>
   </div>

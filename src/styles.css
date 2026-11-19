@@ -501,6 +501,10 @@ main { max-width: 1680px; }
 .office-3d > div:first-child { position: absolute !important; inset: 0; }
 .office-3d-labels { inset: 0; overflow: clip; pointer-events: none; position: absolute; }
 .office-3d-labels > * { left: 0; position: absolute; top: 0; visibility: hidden; will-change: transform; }
+.office-3d-labels > .office-3d-links { visibility: visible; }
+.office-3d-links button { background: #101815; border: 1px solid #f4d35e; border-radius: 6px; clip-path: inset(50%); color: #f4efe6; font: inherit; font-size: 12px; height: 1px; overflow: hidden; padding: 0; pointer-events: auto; position: absolute; white-space: nowrap; width: 1px; }
+.office-3d-links button:focus { clip-path: none; height: auto; left: 10px; overflow: visible; padding: 5px 10px; top: 10px; width: auto; z-index: 3; }
+.office-3d-links button:nth-child(2):focus { top: 44px; }
 .agent-tag-3d { align-items: center; background: transparent; border: 0; color: #eef9ef; cursor: pointer; display: grid; gap: 4px; justify-items: center; padding: 0; pointer-events: auto; white-space: nowrap; }
 .agent-tag-row { align-items: center; display: flex; gap: 4px; }
 .agent-tag-3d .pixel-station-name { font-size: 10px; }
@@ -748,22 +752,7 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 .usage-page .usage-card, .office-overlay .usage-card { margin-bottom: 0; }
 
 /* Floor switcher of the 3D office: an elevator panel, the upper floor on top */
-.office-3d-floors { display: flex; flex-direction: column; gap: 6px; left: 10px; position: absolute; top: 10px; z-index: 2; }
-.office-3d-floors button { align-items: center; background: rgba(18, 26, 24, 0.78); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 8px; color: #f4efe6; cursor: pointer; display: grid; font: inherit; font-size: 12px; gap: 8px; grid-template-columns: 26px auto auto; min-width: 150px; padding: 5px 10px 5px 6px; text-align: left; }
-.office-3d-floors button:hover { background: rgba(18, 26, 24, 0.92); }
-.office-3d-floors button b { align-items: center; border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 50%; display: inline-flex; font: 600 12px ui-monospace, monospace; height: 24px; justify-content: center; width: 24px; }
-.office-3d-floors button small { background: rgba(255, 255, 255, 0.2); border-radius: 9px; color: #ffffff; font: 600 11px ui-monospace, monospace; justify-self: end; padding: 1px 7px; }
-.office-3d-floors button.active { border-color: #f4d35e; }
-.office-3d-floors button.active b { background: #f4d35e; border-color: #f4d35e; box-shadow: 0 0 10px #f4d35e88; color: #1c1f24; }
-.office-stage .office-3d-floors { top: 58px; left: 12px; }
 .speech-sleep { font-style: italic; }
-@media (max-width: 700px) {
-  .office-3d-floors { flex-direction: row; }
-  .office-3d-floors button { font-size: 11px; gap: 6px; min-width: 0; grid-template-columns: 22px auto; padding: 4px 8px 4px 4px; }
-  .office-3d-floors button b { height: 20px; width: 20px; }
-  .office-3d-floors button small { display: none; }
-  .office-stage .office-3d-floors { top: 96px; }
-}
 .office-3d-tools button.active.sleep { background: #3d4f8c; }
 
 /* Task board: columns are as tall as the screen allows and scroll on their own, so the board's

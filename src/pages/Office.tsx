@@ -217,7 +217,7 @@ export function Office({ dashboard, dashboardPending = false, onNavigate }: { da
         </section></div></>}
       {snapshot.status === 'failed' && <section className="empty-state office-failed"><h2>Not Available</h2><p>The office source could not be reached.</p></section>}
     </div>
-    {show3d && <small className="office-3d-hint">Drag to rotate · right-drag, two fingers or Geser to pan · scroll to zoom · click an agent for details</small>}
+    {show3d && <small className="office-3d-hint">Drag to pan · scroll to zoom · click an agent for details</small>}
     {panel && <aside id="office-panel" className="office-panel" aria-label="Office panel" onKeyDown={(event) => { if (event.key === 'Escape' && !selected) { event.stopPropagation(); choosePanel(undefined) } }}>
       <div className="office-panel-head"><div className="panel-tabs" role="tablist" aria-label="Panel">{PANEL_TABS.map((tab) => <button type="button" role="tab" key={tab} aria-selected={panel === tab} className={panel === tab ? 'active' : ''} onClick={() => choosePanel(tab)}>{tab}</button>)}</div><button type="button" className="icon-button" onClick={() => choosePanel(undefined)} aria-label="Close panel">✕</button></div>
       <div className="office-panel-body" role="tabpanel" aria-label={panel}>

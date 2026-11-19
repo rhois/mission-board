@@ -1,10 +1,11 @@
 /* eslint-disable react-refresh/only-export-components -- an entry module: nothing imports it, so there is nothing to hot-swap */
 import { Canvas, useThree } from '@react-three/fiber'
-import { lazy, StrictMode, Suspense, useEffect, useState } from 'react'
+import { lazy, StrictMode, useMemo, Suspense, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../src/styles.css'
 import { createLayout, type OfficeLayout, type RoomId } from '../src/office3d-layout.ts'
 import { Environment } from '../src/scene3d/environment.tsx'
+import { Lighting } from '../src/scene3d/lighting.tsx'
 import { WorkDesk } from '../src/scene3d/props.tsx'
 import type { OfficeState, OfficeStation } from '../src/types.ts'
 
@@ -45,17 +46,6 @@ function sampleStations(n: number): OfficeStation[] {
   })
 }
 
-/** Same lights as Office3D's `Lighting`: day in the light theme, evening in the dark one. */
-function Lighting({ day }: { day: boolean }) {
-  return <>
-    <color attach="background" args={[day ? '#bfe0ef' : '#1a2335']}/>
-    <fog attach="fog" args={[day ? '#bfe0ef' : '#1a2335', 38, 75]}/>
-    <hemisphereLight args={[day ? '#fff4e0' : '#7f95bd', day ? '#5d7a4c' : '#1e2620', day ? 1.1 : 0.32]}/>
-    <directionalLight position={[10, 16, 9]} intensity={day ? 2.4 : 0.75} color={day ? '#fff1d6' : '#ff9a5a'} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-camera-left={-16} shadow-camera-right={16} shadow-camera-top={16} shadow-camera-bottom={-16} shadow-camera-far={60}/>
-    <ambientLight intensity={day ? 0.35 : 0.14} color={day ? '#ffffff' : '#8fa4d8'}/>
-  </>
-}
-
 /** Fixed camera: the layout's ~55° view at its target, backed off for narrow windows. */
 function FixedCamera({ layout }: { layout: OfficeLayout }) {
   const { camera, size } = useThree()
@@ -70,13 +60,13 @@ function FixedCamera({ layout }: { layout: OfficeLayout }) {
 }
 
 function SceneOnly() {
-  const layout = createLayout(count)
+  const layout = useMemo(() => createLayout(count), [])
   const occupied = params.get('occupied')
   const occupiedRooms = occupied === null ? undefined : occupied.split(',').filter(Boolean) as RoomId[]
   const [link, setLink] = useState('')
   return <div style={{ height: '100%', position: 'relative' }}>
-    <Canvas shadows dpr={[1, 2]} camera={{ fov: 40, near: 0.5, far: 200 }} gl={{ antialias: true }}>
-      <Lighting day={theme === 'light'}/>
+    <Canvas shadows dpr={[1, 2]} camera={{ fov: 40, near: 0.5, far: 300 }} gl={{ antialias: true }}>
+      <Lighting theme={theme} layout={layout}/>
       <FixedCamera layout={layout}/>
       <Environment night={theme === 'dark'} layout={layout} occupiedRooms={occupiedRooms} onNavigate={setLink}/>
       {layout.desks.map((position, index) => <WorkDesk key={index} position={position} active={index % 6 < 2}/>)}
@@ -87,7 +77,6 @@ function SceneOnly() {
   </div>
 }
 
-// Loaded lazily, so the bare scene still works while Office3D is being rewired.
 const Office3D = lazy(() => import('../src/pages/Office3D.tsx'))
 
 function WithOffice() {

@@ -268,7 +268,7 @@ export function createLayout(agentCount: number): OfficeLayout {
   const sceneWidth = pan.maxX - pan.minX
   const distance = Math.max(26, sceneWidth * 0.9)
   const camera = {
-    target: vec((groundsMinX + groundsMaxX) / 2, (north + sidewalk.maxZ) / 2),
+    target: vec((groundsMinX + groundsMaxX) / 2, (north + sidewalk.maxZ) / 2 + 1.5),
     offset: [0, distance * Math.sin(CAMERA_PITCH), distance * Math.cos(CAMERA_PITCH)] as Vec3,
   }
 
