@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Office 3D harness</title>
+    <style>html, body, #root { height: 100%; margin: 0; }</style>
+  </head>
+  <body>
+    <!-- Dev-only page (served by `npm run dev:client`, not an input of `vite build`).
+         /harness/office3d.html?n=12&theme=light            Office3D with sample stations
+         /harness/office3d.html?scene=env&n=3&theme=dark    the bare scene: Environment + desks, fixed camera
+         &occupied=kerja,lounge                              (env) rooms counted as occupied; the rest are dimmer at night -->
+    <div id="root"></div>
+    <script type="module" src="./office3d.tsx"></script>
+  </body>
+</html>

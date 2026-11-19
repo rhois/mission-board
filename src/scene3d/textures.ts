@@ -144,6 +144,64 @@ export function screenTexture(active: boolean) {
   })
 }
 
+/** A room name painted on the floor: light letters on a dark, rounded plate with a coloured stripe. */
+export function floorSign(label: string, accent: string) {
+  return canvasTexture(`floor-sign-${label}-${accent}`, 512, 128, (ctx) => {
+    ctx.clearRect(0, 0, 512, 128)
+    ctx.fillStyle = 'rgba(20, 24, 28, 0.72)'
+    ctx.beginPath(); ctx.roundRect(4, 4, 504, 120, 22); ctx.fill()
+    ctx.fillStyle = accent
+    ctx.beginPath(); ctx.roundRect(4, 4, 20, 120, [22, 0, 0, 22]); ctx.fill()
+    ctx.fillStyle = '#f7f3ea'
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    let size = 70
+    ctx.font = `bold ${size}px "Trebuchet MS", Arial, sans-serif`
+    while (ctx.measureText(label.toUpperCase()).width > 440 && size > 30) { size -= 4; ctx.font = `bold ${size}px "Trebuchet MS", Arial, sans-serif` }
+    ctx.fillText(label.toUpperCase(), 268, 68)
+  })
+}
+
+/** The Papan Misi board: a header and three kanban columns of task cards. */
+export function missionBoardFace() {
+  return canvasTexture('mission-board', 512, 256, (ctx) => {
+    ctx.fillStyle = '#f4f1ea'; ctx.fillRect(0, 0, 512, 256)
+    ctx.fillStyle = '#1f3a5f'; ctx.fillRect(0, 0, 512, 46)
+    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.font = 'bold 30px "Trebuchet MS", Arial, sans-serif'; ctx.fillText('PAPAN MISI', 256, 25)
+    const columns = [['TO DO', '#e9c46a'], ['DOING', '#5fa8d3'], ['DONE', '#8fd18a']] as const
+    const rand = random(17)
+    columns.forEach(([title, color], column) => {
+      const x = 12 + column * 168
+      ctx.fillStyle = '#e3ded2'; ctx.fillRect(x, 54, 152, 194)
+      ctx.fillStyle = '#3a3f44'; ctx.font = 'bold 18px Arial, sans-serif'; ctx.fillText(title, x + 76, 70)
+      const cards = 4 - column
+      for (let card = 0; card < cards; card += 1) {
+        const y = 86 + card * 40
+        ctx.fillStyle = color; ctx.fillRect(x + 8, y, 136, 32)
+        ctx.fillStyle = 'rgba(0,0,0,0.45)'
+        ctx.fillRect(x + 16, y + 9, 50 + rand() * 60, 4)
+        ctx.fillRect(x + 16, y + 19, 30 + rand() * 70, 4)
+      }
+    })
+  })
+}
+
+/** Front of a server rack: rows of 1U units with vents and status LEDs. */
+export function serverRackFace() {
+  return canvasTexture('server-rack', 128, 256, (ctx) => {
+    ctx.fillStyle = '#15181c'; ctx.fillRect(0, 0, 128, 256)
+    const rand = random(23)
+    for (let unit = 0; unit < 14; unit += 1) {
+      const y = 8 + unit * 17.5
+      ctx.fillStyle = unit % 4 === 3 ? '#2b3138' : '#22272d'; ctx.fillRect(8, y, 112, 15)
+      ctx.fillStyle = '#0d0f12'
+      for (let vent = 0; vent < 8; vent += 1) ctx.fillRect(14 + vent * 7, y + 4, 4, 7)
+      ctx.fillStyle = rand() > 0.25 ? '#4be07a' : '#f4a261'; ctx.fillRect(96, y + 5, 5, 5)
+      ctx.fillStyle = rand() > 0.5 ? '#5fb4f2' : '#2a5f9c'; ctx.fillRect(106, y + 5, 5, 5)
+    }
+  })
+}
+
 /** A retro game on the arcade screens: a grid of bricks, a paddle and a ball. */
 export function arcadeScreen() {
   return canvasTexture('arcade-screen', 128, 100, (ctx) => {
