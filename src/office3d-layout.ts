@@ -1,126 +1,90 @@
-import type { OfficeStation } from './types.ts'
-
-// Layout of the 3D office (world units ≈ metres, y up, +z towards the street).
-// Kept apart from the scene so it can be tested. The office adapts to the crew: there is one
-// unlabeled desk per agent (hot desking), and the building grows to the left to fit them.
+// Layout of the 3D office as pure geometry on a tile grid (1 unit = 1 tile ≈ 1 metre).
+// x east, y up, z south (towards the street). No React or three here, so it can be tested.
 //
-//   z -5 ┌──────────── back wall ────────────┬────┬───────────┐
-//   gang │ desks (one per agent, two rows,   │ lounge │ game room │
-//  bakso │  growing to the left)             │(TV,sofa)│          │
-//   kopi │ meeting room (long table, TV,     │  pantry ├──────────┘
-//        │  whiteboard) │ stairs
-//   z  4 └── low front wall ─── entrance ───────────┘
-//        sidewalk · flag      (street food sits in the gang left of the building)
-//        road
+// One floor, two bands of rooms. Ruang Kerja and Kamar Tidur grow east with the crew (one desk
+// and one bed per agent, two rows, at least three columns); every other room has a fixed size
+// and shifts east with them. Shown for three agents (K = 10, the workspace width):
 //
-// Lantai 2 sits on the same footprint, FLOOR_HEIGHT up: a dorm bedroom (one bed per agent, above
-// the desks), a lesehan corner and a bathroom, reached by the stairs by the entrance, with a
-// ruko-style balcony over the front. Positions on lantai 2 have y = FLOOR_HEIGHT.
+//  z -8 ┌───────────┬───────┬───────┐
+//  gang │ Kamar     │Lounge │ Game  │
+//  bakso│ Tidur     ║       ║ Room  │      ║ / ═ : door (2 tiles)
+//       │       ═══ │       │       │
+//  z  0 ├───────────┼═══────┼───────┤
+//  kopi │ Kerja     │ Rapat │Misi│Srv│
+//       │ (work)    ║ (mtg) ║    ║   │
+//  z  8 └────═══────┴───────┴────┴───┘
+//         yard · flag · trees
+//         sidewalk · street lamps
+//         road
+//      x 0          K      K+8 K+12 K+16
 
 export type Vec3 = [number, number, number]
-
-/** Glass wall between the workspace and the lounge (back part, up to LOUNGE_PARTITION_END_Z). */
-export const PARTITION_X = 0.4
-export const LOUNGE_PARTITION_END_Z = -0.5
-/** Game room wing right of the building, entered through a door in the lounge wall. */
-export const GAME_ROOM = { minX: 9.5, maxX: 15.5, minZ: -5.2, maxZ: 0.6 }
-/** Walking line from the lounge lane through the game room door, and the door's extent. */
-export const GAME_LANE_Z = -3.7
-export const GAME_DOOR = { fromZ: -4.4, toZ: -3.0 }
-export const PING_PONG: Vec3 = [12.6, 0, -1.4]
-export const ARCADES: Vec3[] = [[10.6, 0, -4.75], [11.6, 0, -4.75]]
-export const GAME_TV: Vec3 = [14.2, 0, -5.05]
-export const BEANBAGS: Vec3[] = [[13.7, 0, -4.35], [14.7, 0, -4.35]]
-export const CARROM: Vec3 = [10.6, 0, -0.1]
-
-/** Walkway in front of the desks; agents walk along it between areas instead of through furniture. */
-export const AISLE_Z = 0.4
-/** The meeting room's right wall (glass), its door in the aisle-side wall, and its table line. */
-export const MEETING_ROOM_MAX_X = -3.2
-export const MEETING_ROOM_MIN_Z = 0.95
-export const MEETING_DOOR_X = -4.15
-export const MEETING_TABLE_Z = 2.75
-/** Walking lanes inside the meeting room: behind the aisle-side chairs and behind the front ones. */
-const MEETING_BACK_LANE_Z = 1.45
-const MEETING_FRONT_LANE_Z = 3.95
-const MEETING_SEAT_PITCH = 0.8
-/** The TV hangs on the back wall; the sofa faces it (backrest towards the aisle). */
-export const TV: Vec3 = [4.6, 0, -4.8]
-export const SOFA: Vec3 = [4.6, 0, -1.3]
-export const LOUNGE_SEATS: Vec3[] = [[4, 0, -1.8], [2.5, 0, -2.9], [6.7, 0, -2.9]]
-const LOUNGE_FACING = [Math.PI, Math.PI / 2, -Math.PI / 2]
-export const COFFEE_TABLE: Vec3 = [4.6, 0, -2.9]
-/** Gap in the low front wall, and the walking line along the sidewalk just outside it. */
-export const ENTRANCE_X = 5.8
-export const SIDEWALK_Z = 5.4
-/** Lounge agents step to this lane first, so they pass between the armchair and the TV. */
-export const LOUNGE_LANE_X = 3.1
-export const STALL_ROTATION = Math.PI / 2
-/** The flag stands at the front-right corner of the grounds, clear of the rooms in view. */
-export const FLAG: Vec3 = [16.4, 0, 2.6]
-
-/** Height of lantai 2's floor above the ground. */
-export const FLOOR_HEIGHT = 2.8
-export type Floor = 1 | 2
-export const floorOf = (position: Vec3 | number): Floor => ((typeof position === 'number' ? position : position[1]) > FLOOR_HEIGHT / 2 ? 2 : 1)
-/** Straight stairs by the entrance, rising towards -x: lantai 1 at lowX, lantai 2 at highX. */
-export const STAIRS = { z: 3.45, width: 0.9, lowX: 4.7, highX: 1.8 }
-/** Where agents step on and off the stairs on each floor. */
-const STAIRS_FOOT: [number, number] = [5.2, STAIRS.z]
-const STAIRS_HEAD: [number, number] = [1.3, STAIRS.z]
-/** Balcony over the front of the building, and the sliding door onto it. */
-export const BALCONY = { minZ: 4.2, maxZ: 6.6 }
-export const BALCONY_DOOR = { fromX: 6.2, toX: 7.4 }
-const BALCONY_LANE_Z = 5
-export const BALCONY_TABLE: Vec3 = [0.6, FLOOR_HEIGHT, 5.5]
-export const HAMMOCK: Vec3 = [4.2, FLOOR_HEIGHT, 5.95]
-/** Lesehan corner upstairs: a low table on a carpet with floor cushions around it. */
-export const LESEHAN_TABLE: Vec3 = [4.3, FLOOR_HEIGHT, -3]
-export const BATHROOM = { minX: 7.6, maxX: 9.5, minZ: -5.2, maxZ: -2.6 }
-/** Beds stand above the desk columns, in two rows with their heads to the back wall. */
-const BED_ROWS_Z = [-4.1, -1.6]
-
-/** Hot desking: one unlabeled desk per agent, in two rows that grow to the left. */
-const DESK_RIGHT_X = -2
-const DESK_PITCH = 2.6
-const DESK_ROWS_Z = [-3.5, -1]
-const MIN_DESK_COLUMNS = 3
-/** The stock building (up to six agents) and the scene width the camera is framed for. */
-const BASE_MIN_X = -9.5
-const BASE_SCENE_WIDTH = 28.7
-const CAMERA_OFFSET_BASE: Vec3 = [-3.9, 15.2, 18.8]
-
+export type RoomId = 'kerja' | 'rapat' | 'lounge' | 'game' | 'tidur' | 'misi' | 'server'
+export interface Rect { minX: number; maxX: number; minZ: number; maxZ: number }
+export interface Room extends Rect { id: RoomId; label: string; tone: string }
+/** Axis-aligned wall segment on the x/z plane, with the door gaps already cut out. */
+export interface Wall { from: [number, number]; to: [number, number] }
+/** A 2-tile gap in a wall, joining two rooms (or a room and the outside). */
+export interface Door { between: [RoomId | 'outside', RoomId | 'outside']; from: [number, number]; to: [number, number] }
 /**
- * Where and how an agent is. `pose` lying (bed, hammock: `height` is the surface) or sitting on
- * the floor (lesehan); otherwise standing, or sitting on a chair when `seated`.
+ * Where and how an agent is. `pose` lying (bed: `height` is the surface) or sitting on the floor;
+ * otherwise standing, or sitting on a chair when `seated`. `facing` is a rotation about y, where 0
+ * looks towards +z (the street).
  */
 export interface Placement { position: Vec3; facing: number; seated: boolean; label?: string; pose?: 'lie' | 'floor'; height?: number }
 export interface IdleStop { key: string; label: string; spots: Placement[] }
 
 export interface OfficeLayout {
-  deskCount: number
-  building: { minX: number; maxX: number; minZ: number; maxZ: number }
-  desks: Vec3[]
-  /** One bed per agent on lantai 2 (y = FLOOR_HEIGHT). */
-  beds: Vec3[]
-  /** Walking line up the gang (alley) along the left outside wall, between the wall and the carts. */
-  sideLaneX: number
-  /** Street food parks in the gang, turned so its stools and customers face the building. */
-  baksoCart: Vec3
-  kopiBike: Vec3
-  gangCenterX: number
-  /** Meeting room in the front of the workspace: a long table (x1..x2) with a TV on a stand at its left end and a whiteboard at its right. */
-  meetingRoom: { minX: number; maxX: number; minZ: number; maxZ: number; table: { x1: number; x2: number; z: number }; tv: Vec3; whiteboard: Vec3; seats: Placement[] }
-  camera: { target: Vec3; offset: Vec3 }
-  /** How far the view may be panned (camera target bounds), so the office never leaves the screen. */
-  pan: { minX: number; maxX: number; minZ: number; maxZ: number }
+  agentCount: number
+  rooms: Room[]; walls: Wall[]; doors: Door[]
+  building: Rect
+  /** Furniture, cart and prop footprints (not walkable). */
+  obstacles: Rect[]
+  desks: Vec3[]; beds: Vec3[]
+  /** Long table along x, TV on a stand at its west end, whiteboard at its east end. */
+  meeting: { table: Rect; tv: Vec3; whiteboard: Vec3; seats: Placement[] }
+  /** Sofa facing the TV on the north wall; the pantry (galon, fridge, counter) sits along the walls. */
+  lounge: { sofa: Vec3; tv: Vec3; coffeeTable: Vec3; seats: Placement[]; pantry: { galon: Vec3; fridge: Vec3; counter: Vec3 } }
+  game: { pingPong: Vec3; arcades: Vec3[]; beanbags: Vec3[]; carrom: Vec3; tv: Vec3 }
+  /** Papan Misi wall (on the north wall of its room, facing south) and the Server Room rack. */
+  board: Vec3; rack: Vec3
+  outdoors: { yard: Rect; sidewalk: Rect; road: Rect; entrance: Vec3; baksoCart: Vec3; kopiBike: Vec3; flag: Vec3; streetLamps: Vec3[]; trees: Vec3[] }
   idleStops: IdleStop[]
+  camera: { target: Vec3; offset: Vec3 }
+  /** Camera target bounds, covering the building, the side lane and the street. */
+  pan: Rect
 }
 
-const spot = (x: number, z: number, facing: number, seated = false, label?: string): Placement => ({ position: [x, 0, z], facing, seated, ...(label ? { label } : {}) })
-const upstairs = (x: number, z: number, facing: number, extra: Partial<Placement> = {}): Placement => ({ position: [x, FLOOR_HEIGHT, z], facing, seated: false, ...extra })
-/** Lying in a bed: feet at the foot end, head on the pillow by the back wall. */
-export const bedSpot = ([x, , z]: Vec3, label?: string): Placement => upstairs(x, z + 0.95, 0, { pose: 'lie', height: 0.5, ...(label ? { label } : {}) })
+/** Street-food carts stand turned a quarter, their customers' side towards the building. */
+export const STALL_ROTATION = Math.PI / 2
+
+const DESK_PITCH = 2
+const MIN_DESK_COLUMNS = 3
+const DESK_ROWS_Z = [2.5, 5.5]
+const BED_ROWS_Z = [-6.4, -3]
+/** Free tiles between the outer walls and the first and last desk/bed column. */
+const SIDE_MARGIN = 2
+const BAND_DEPTH = 8
+const RAPAT_WIDTH = 8
+const LOUNGE_WIDTH = 8
+const GAME_WIDTH = 8
+const MISI_WIDTH = 4
+const SERVER_WIDTH = 4
+/** The side lane (gang) west of the building, where the street food parks. */
+const GANG_WIDTH = 5
+const YARD_DEPTH = 3
+const SIDEWALK_DEPTH = 2
+const ROAD_DEPTH = 6
+const CAMERA_PITCH = (55 * Math.PI) / 180
+
+const vec = (x: number, z: number): Vec3 => [x, 0, z]
+const rect = (x: number, z: number, halfX: number, halfZ: number): Rect => ({ minX: x - halfX, maxX: x + halfX, minZ: z - halfZ, maxZ: z + halfZ })
+/** The facing that looks from (x, z) towards (tx, tz). */
+const facingTo = (x: number, z: number, tx: number, tz: number) => Math.atan2(tx - x, tz - z)
+const spot = (x: number, z: number, facing: number, seated = false, label?: string): Placement => ({ position: vec(x, z), facing, seated, ...(label ? { label } : {}) })
+const lookAt = (x: number, z: number, [tx, , tz]: Vec3, seated = false, label?: string) => spot(x, z, facingTo(x, z, tx, tz), seated, label)
+/** Lying in a bed: feet at the foot end, head on the pillow towards -z. */
+const bedSpot = ([x, , z]: Vec3): Placement => ({ position: vec(x, z + 0.95), facing: 0, seated: false, pose: 'lie', height: 0.5 })
 /** A spot given in a stall's own coordinates (as if unrotated), placed in the world. */
 function stallSpot(stall: Vec3, x: number, z: number, facing: number, seated = false): Placement {
   const cos = Math.cos(STALL_ROTATION)
@@ -128,260 +92,201 @@ function stallSpot(stall: Vec3, x: number, z: number, facing: number, seated = f
   return spot(stall[0] + x * cos + z * sin, stall[2] - x * sin + z * cos, facing + STALL_ROTATION, seated)
 }
 
-/**
- * Where idle agents spend their time. Each stop has a few spots; idlePlan spreads agents so that
- * no two share a spot while free ones remain.
- */
-function idleStops(building: OfficeLayout['building'], baksoCart: Vec3, kopiBike: Vec3, beds: Vec3[]): IdleStop[] {
-  const [tableX, , tableZ] = LESEHAN_TABLE
-  return [
-    { key: 'tidur', label: 'Sleeping', spots: beds.map((bed) => bedSpot(bed)) },
-    { key: 'balkon', label: 'Relaxing on the balcony', spots: [
-      upstairs(BALCONY_TABLE[0] - 0.85, BALCONY_TABLE[2], Math.PI / 2, { seated: true }),
-      upstairs(BALCONY_TABLE[0] + 0.85, BALCONY_TABLE[2], -Math.PI / 2, { seated: true }),
-      upstairs(HAMMOCK[0] + 0.9, HAMMOCK[2], -Math.PI / 2, { pose: 'lie', height: 0.62, label: 'Napping in the hammock' }),
-      upstairs(7.9, BALCONY.maxZ - 0.45, 0, { label: 'Enjoying the view from the balcony' }),
+/** Splits a straight wall line around the doors that lie on it. */
+function cutWall(from: [number, number], to: [number, number], doors: Door[]): Wall[] {
+  const alongX = from[1] === to[1]
+  const axis = alongX ? 0 : 1
+  const line = alongX ? from[1] : from[0]
+  const gaps = doors
+    .filter((door) => alongX ? door.from[1] === line && door.to[1] === line : door.from[0] === line && door.to[0] === line)
+    .map((door) => [Math.min(door.from[axis], door.to[axis]), Math.max(door.from[axis], door.to[axis])] as const)
+    .sort((a, b) => a[0] - b[0])
+  const point = (value: number): [number, number] => alongX ? [value, line] : [line, value]
+  const walls: Wall[] = []
+  let start = Math.min(from[axis], to[axis])
+  const end = Math.max(from[axis], to[axis])
+  for (const [gapStart, gapEnd] of gaps) {
+    if (gapEnd <= start || gapStart >= end) continue
+    if (gapStart > start) walls.push({ from: point(start), to: point(gapStart) })
+    start = Math.max(start, gapEnd)
+  }
+  if (end > start) walls.push({ from: point(start), to: point(end) })
+  return walls
+}
+
+/** The office for a given number of agents: one desk and one bed each, rooms on a grid around them. */
+export function createLayout(agentCount: number): OfficeLayout {
+  const agents = Math.max(1, Math.floor(agentCount) || 1)
+  const columns = Math.max(MIN_DESK_COLUMNS, Math.ceil(agents / DESK_ROWS_Z.length))
+  const K = columns * DESK_PITCH + 2 * SIDE_MARGIN // workspace width
+  const columnX = (column: number) => SIDE_MARGIN + 1 + column * DESK_PITCH
+  // The back row fills first (west to east), then the front row; beds mirror the desks.
+  const grid = (rowsZ: number[]) => Array.from({ length: agents }, (_, index): Vec3 => {
+    const row = index < columns ? 0 : 1
+    return vec(columnX(row === 0 ? index : index - columns), rowsZ[row])
+  })
+  const desks = grid(DESK_ROWS_Z)
+  const beds = grid(BED_ROWS_Z)
+
+  const north = -BAND_DEPTH
+  const south = BAND_DEPTH
+  const rapatX = K
+  const loungeX = K
+  const gameX = loungeX + LOUNGE_WIDTH
+  const misiX = rapatX + RAPAT_WIDTH
+  const serverX = misiX + MISI_WIDTH
+  // Both bands are equally wide (lounge + game = rapat + misi + server).
+  const maxX = Math.max(gameX + GAME_WIDTH, serverX + SERVER_WIDTH)
+  const building: Rect = { minX: 0, maxX, minZ: north, maxZ: south }
+
+  const rooms: Room[] = [
+    { id: 'kerja', label: 'Ruang Kerja', tone: 'kerja', minX: 0, maxX: K, minZ: 0, maxZ: south },
+    { id: 'rapat', label: 'Ruang Rapat', tone: 'rapat', minX: rapatX, maxX: misiX, minZ: 0, maxZ: south },
+    { id: 'misi', label: 'Papan Misi', tone: 'misi', minX: misiX, maxX: serverX, minZ: 0, maxZ: south },
+    { id: 'server', label: 'Server Room', tone: 'server', minX: serverX, maxX, minZ: 0, maxZ: south },
+    { id: 'tidur', label: 'Kamar Tidur', tone: 'tidur', minX: 0, maxX: K, minZ: north, maxZ: 0 },
+    { id: 'lounge', label: 'Lounge', tone: 'lounge', minX: loungeX, maxX: gameX, minZ: north, maxZ: 0 },
+    { id: 'game', label: 'Game Room', tone: 'game', minX: gameX, maxX, minZ: north, maxZ: 0 },
+  ]
+
+  const entranceX = K / 2
+  const doors: Door[] = [
+    { between: ['outside', 'kerja'], from: [entranceX - 1, south], to: [entranceX + 1, south] },
+    { between: ['kerja', 'rapat'], from: [K, 5], to: [K, 7] },
+    { between: ['kerja', 'tidur'], from: [K - 3, 0], to: [K - 1, 0] },
+    { between: ['tidur', 'lounge'], from: [K, -3], to: [K, -1] },
+    { between: ['rapat', 'lounge'], from: [rapatX + 5, 0], to: [rapatX + 7, 0] },
+    { between: ['lounge', 'game'], from: [gameX, -3], to: [gameX, -1] },
+    { between: ['rapat', 'misi'], from: [misiX, 5], to: [misiX, 7] },
+    { between: ['misi', 'server'], from: [serverX, 5], to: [serverX, 7] },
+  ]
+  const wallLines: [[number, number], [number, number]][] = [
+    [[0, north], [maxX, north]], [[0, south], [maxX, south]], [[0, north], [0, south]], [[maxX, north], [maxX, south]],
+    [[0, 0], [maxX, 0]], [[K, north], [K, south]], [[gameX, north], [gameX, 0]], [[misiX, 0], [misiX, south]], [[serverX, 0], [serverX, south]],
+  ]
+  const walls = wallLines.flatMap(([from, to]) => cutWall(from, to, doors))
+
+  const obstacles: Rect[] = [
+    ...desks.map(([x, , z]) => rect(x, z, 0.95, 0.48)),
+    ...beds.map(([x, , z]) => rect(x, z, 0.53, 1.03)),
+  ]
+
+  // Ruang Rapat: six chairs around a long table, the presenter at the whiteboard, standing room.
+  const tableX = rapatX + RAPAT_WIDTH / 2
+  const tableZ = 4
+  const table = rect(tableX, tableZ, 1.6, 0.55)
+  const meetingTv = vec(table.minX - 0.75, tableZ)
+  const whiteboard = vec(table.maxX + 1, tableZ)
+  const chairXs = [tableX + 0.8, tableX, tableX - 0.8]
+  const chairs = chairXs.flatMap((x): Placement[] => [spot(x, tableZ - 0.8, 0, true), spot(x, tableZ + 0.8, Math.PI, true)])
+  const standing = chairXs.flatMap((x): Placement[] => [spot(x, tableZ - 1.6, 0), spot(x, tableZ + 1.6, Math.PI)])
+  const presenter = spot(whiteboard[0] - 0.5, tableZ, -Math.PI / 2, false, 'Presenting at the whiteboard')
+  obstacles.push(table, rect(meetingTv[0], tableZ, 0.3, 0.4), rect(whiteboard[0], tableZ, 0.12, 0.9))
+
+  // Lounge: TV on the north wall, the sofa facing it across a coffee table, an armchair each side.
+  const loungeMidX = loungeX + LOUNGE_WIDTH / 2
+  const loungeTv = vec(loungeMidX, north + 0.3)
+  const sofa = vec(loungeMidX, -3.8)
+  const coffeeTable = vec(loungeMidX, -5.4)
+  const armchairs = [vec(loungeMidX - 1.6, -5.4), vec(loungeMidX + 1.6, -5.4)]
+  const loungeSeats: Placement[] = [
+    spot(loungeMidX - 0.6, -4.2, Math.PI, true),
+    spot(loungeMidX + 0.6, -4.2, Math.PI, true),
+    ...armchairs.map(([x, , z]) => lookAt(x, z, coffeeTable, true)),
+  ]
+  const galon = vec(loungeX + 0.6, north + 0.6)
+  const fridge = vec(gameX - 0.45, north + 0.6)
+  const counter = vec(gameX - 0.35, north + 2.2)
+  obstacles.push(
+    rect(sofa[0], sofa[2], 1.2, 0.45), rect(coffeeTable[0], coffeeTable[2], 0.5, 0.3), rect(loungeTv[0], loungeTv[2], 0.8, 0.25),
+    ...armchairs.map(([x, , z]) => rect(x, z, 0.45, 0.43)),
+    rect(galon[0], galon[2], 0.22, 0.22), rect(fridge[0], fridge[2], 0.38, 0.38), rect(counter[0], counter[2], 0.32, 0.8),
+  )
+
+  // Game Room: ping-pong in the middle, arcades and a TV with beanbags on the north wall, carrom by the door.
+  const pingPong = vec(gameX + 4, -3.5)
+  const arcades = [vec(gameX + 1, north + 0.5), vec(gameX + 2, north + 0.5)]
+  const gameTv = vec(gameX + 5.6, north + 0.3)
+  const beanbags = [vec(gameX + 5, north + 1.7), vec(gameX + 6.2, north + 1.7)]
+  const carrom = vec(gameX + 6.6, -1.5)
+  obstacles.push(
+    rect(pingPong[0], pingPong[2], 1.37, 0.76), rect(gameTv[0], gameTv[2], 0.8, 0.25), rect(carrom[0], carrom[2], 0.45, 1.0),
+    ...arcades.map(([x, , z]) => rect(x, z, 0.36, 0.31)),
+    ...beanbags.map(([x, , z]) => rect(x, z, 0.42, 0.42)),
+  )
+
+  // Papan Misi on the north wall of its room; the server rack against the Server Room's north wall.
+  const board = vec(misiX + MISI_WIDTH / 2, 0.15)
+  const rack = vec(serverX + SERVER_WIDTH / 2, 0.6)
+  obstacles.push(rect(board[0], board[2], 1.5, 0.15), rect(rack[0], rack[2], 0.6, 0.4))
+
+  // Outside: the gang west of the building, the yard in front, then the sidewalk and the road.
+  const groundsMinX = -GANG_WIDTH
+  const groundsMaxX = maxX + 3
+  const yard: Rect = { minX: groundsMinX, maxX: groundsMaxX, minZ: south, maxZ: south + YARD_DEPTH }
+  const sidewalk: Rect = { minX: groundsMinX, maxX: groundsMaxX, minZ: yard.maxZ, maxZ: yard.maxZ + SIDEWALK_DEPTH }
+  const road: Rect = { minX: groundsMinX, maxX: groundsMaxX, minZ: sidewalk.maxZ, maxZ: sidewalk.maxZ + ROAD_DEPTH }
+  const entrance = vec(entranceX, south + 1)
+  const baksoCart = vec(-3.4, -2)
+  const kopiBike = vec(-3.4, 3)
+  const flag = vec(maxX - 1.5, south + 2)
+  const streetLamps: Vec3[] = []
+  for (let x = groundsMinX + 1; x <= groundsMaxX; x += 8) streetLamps.push(vec(x, sidewalk.maxZ - 0.3))
+  const trees = [vec(2, south + 1.5), vec(K + 4, south + 1.5), vec(K + 11, south + 1.5)]
+  obstacles.push(
+    rect(baksoCart[0], baksoCart[2] + 0.25, 0.5, 1.2), rect(kopiBike[0], kopiBike[2], 0.4, 0.9),
+    rect(flag[0], flag[2], 0.2, 0.2), ...trees.map(([x, , z]) => rect(x, z, 0.4, 0.4)),
+    ...streetLamps.map(([x, , z]) => rect(x, z, 0.15, 0.15)),
+  )
+
+  const idleStops: IdleStop[] = [
+    { key: 'lounge', label: 'Relaxing in the lounge', spots: loungeSeats },
+    { key: 'galon', label: 'Getting water from the galon', spots: [lookAt(galon[0] + 0.85, galon[2], galon), lookAt(galon[0] + 0.7, galon[2] + 0.75, galon), lookAt(galon[0], galon[2] + 0.9, galon)] },
+    { key: 'dapur', label: 'In the kitchen', spots: [lookAt(fridge[0] - 0.95, fridge[2], fridge), spot(counter[0] - 0.85, counter[2] - 0.4, Math.PI / 2), spot(counter[0] - 0.85, counter[2] + 0.4, Math.PI / 2)] },
+    { key: 'game', label: 'Playing ping-pong', spots: [
+      spot(pingPong[0] - 1.75, pingPong[2], Math.PI / 2), spot(pingPong[0] + 1.75, pingPong[2], -Math.PI / 2),
+      spot(carrom[0], carrom[2] - 0.75, 0, true, 'Playing carrom'), spot(carrom[0], carrom[2] + 0.75, Math.PI, true, 'Playing carrom'),
     ] },
-    { key: 'lesehan', label: 'Lesehan upstairs', spots: [[-1, 0, Math.PI / 2], [1, 0, -Math.PI / 2], [0, -0.85, 0], [0, 0.85, Math.PI]].map(([dx, dz, facing]) => upstairs(tableX + dx, tableZ + dz, facing, { pose: 'floor' })) },
-    { key: 'lounge', label: 'Relaxing in the lounge', spots: LOUNGE_SEATS.map(([x, , z], index) => spot(x, z, LOUNGE_FACING[index], true)) },
-    { key: 'galon', label: 'Getting water from the galon', spots: [spot(8.35, -0.4, Math.PI / 2), spot(8.2, -1.05, 2.2), spot(8.2, 0.3, 1.1)] },
+    { key: 'arcade', label: 'Playing arcade games', spots: [
+      ...arcades.map(([x, , z]) => spot(x, z + 0.8, Math.PI)),
+      ...beanbags.map(([x, , z]) => lookAt(x, z, gameTv, true, 'Gaming on the console')),
+    ] },
+    { key: 'tidur', label: 'Sleeping', spots: beds.map(bedSpot) },
     // On the gerobak's plastic stools, facing the cart.
     { key: 'bakso', label: 'Eating bakso', spots: [stallSpot(baksoCart, 0.5, 1.1, Math.PI, true), stallSpot(baksoCart, -0.3, 1.2, Math.PI, true), stallSpot(baksoCart, 1.3, 0.9, -2.4)] },
-    { key: 'dapur', label: 'In the kitchen', spots: [spot(8.25, 2.6, Math.PI / 2), spot(8.3, 0.65, Math.PI / 2), spot(8.25, 3.3, Math.PI / 2)] },
     { key: 'kopi', label: 'Coffee at the kopi bike', spots: [stallSpot(kopiBike, -0.5, 0.85, Math.PI), stallSpot(kopiBike, 0.5, 0.85, Math.PI), stallSpot(kopiBike, 1.45, 0.3, -Math.PI / 2)] },
-    { key: 'game', label: 'Playing ping-pong', spots: [spot(PING_PONG[0] - 1.75, PING_PONG[2], Math.PI / 2), spot(PING_PONG[0] + 1.75, PING_PONG[2], -Math.PI / 2), spot(BEANBAGS[0][0], BEANBAGS[0][2], Math.PI, true, 'Gaming on the console')] },
-    { key: 'arcade', label: 'Playing arcade games', spots: [spot(ARCADES[0][0], ARCADES[0][2] + 0.8, Math.PI), spot(ARCADES[1][0], ARCADES[1][2] + 0.8, Math.PI), spot(BEANBAGS[1][0], BEANBAGS[1][2], Math.PI, true, 'Gaming on the console')] },
-    { key: 'jalan', label: 'Taking a stroll', spots: [spot(FLAG[0] - 0.8, FLAG[2] + 0.3, Math.PI / 2), spot(building.minX + 0.95, -0.9, -Math.PI / 2), spot(1.3, -4.4, Math.PI)] },
+    { key: 'jalan', label: 'Taking a stroll', spots: [
+      lookAt(flag[0] - 1, flag[2] + 0.2, flag),
+      spot(entranceX + 4, sidewalk.minZ + 1, 0, false, 'Watching the street'),
+      spot(-1, -6, Math.PI, false),
+      lookAt(board[0], 1.4, board, false, 'Reading the mission board'),
+    ] },
   ]
-}
 
-/** The office for a given number of agents: one desk each, and a building wide enough for them. */
-export function createLayout(agentCount: number): OfficeLayout {
-  const deskCount = Math.max(1, agentCount)
-  const columns = Math.max(MIN_DESK_COLUMNS, Math.ceil(deskCount / DESK_ROWS_Z.length))
-  // The back row fills first (right to left), then the front row.
-  const desks: Vec3[] = Array.from({ length: deskCount }, (_, index) => {
-    const row = index < columns ? 0 : 1
-    const column = row === 0 ? index : index - columns
-    return [DESK_RIGHT_X - column * DESK_PITCH, 0, DESK_ROWS_Z[row]]
-  })
-  const minX = DESK_RIGHT_X - (columns - 1) * DESK_PITCH - 2.3
-  const shift = minX - BASE_MIN_X
-  const building = { minX, maxX: 9.5, minZ: -5.2, maxZ: 4.2 }
-  const beds: Vec3[] = desks.map(([x], index) => [x, FLOOR_HEIGHT, BED_ROWS_Z[index < columns ? 0 : 1]])
-  const baksoCart: Vec3 = [-11.9 + shift, 0, -2.3]
-  const kopiBike: Vec3 = [-11.9 + shift, 0, 1.6]
-  const sceneMinX = minX - 3.7
-  const scale = (GAME_ROOM.maxX - sceneMinX) / BASE_SCENE_WIDTH
+  const pan: Rect = { minX: groundsMinX - 1, maxX: groundsMaxX + 1, minZ: north - 2, maxZ: road.maxZ }
+  // Azimuth locked north, about 55° down; far enough back to frame the whole width.
+  const sceneWidth = pan.maxX - pan.minX
+  const distance = Math.max(26, sceneWidth * 0.9)
+  const camera = {
+    target: vec((groundsMinX + groundsMaxX) / 2, (north + sidewalk.maxZ) / 2),
+    offset: [0, distance * Math.sin(CAMERA_PITCH), distance * Math.cos(CAMERA_PITCH)] as Vec3,
+  }
+
   return {
-    deskCount, building, desks, beds, baksoCart, kopiBike,
-    sideLaneX: -10.15 + shift,
-    gangCenterX: -11.4 + shift,
-    camera: { target: [(sceneMinX + GAME_ROOM.maxX) / 2 - 0.15, 0.6, 0.2], offset: CAMERA_OFFSET_BASE.map((value) => value * scale) as Vec3 },
-    pan: { minX: sceneMinX - 0.3, maxX: 17, minZ: -7, maxZ: 11 },
-    idleStops: idleStops(building, baksoCart, kopiBike, beds),
-    meetingRoom: meetingRoom(building, deskCount),
+    agentCount: agents, rooms, walls, doors, building, obstacles, desks, beds,
+    meeting: { table, tv: meetingTv, whiteboard, seats: [presenter, ...chairs, ...standing] },
+    lounge: { sofa, tv: loungeTv, coffeeTable, seats: loungeSeats, pantry: { galon, fridge, counter } },
+    game: { pingPong, arcades, beanbags, carrom, tv: gameTv },
+    board, rack,
+    outdoors: { yard, sidewalk, road, entrance, baksoCart, kopiBike, flag, streetLamps, trees },
+    idleStops, camera, pan,
   }
 }
 
-/**
- * The meeting room sits in the front of the workspace, by the aisle. Its long table has a chair for
- * every agent but the presenter (at least six), so the room grows with the crew, up to the
- * building's left wall: a TV on a stand at the table's left end, a whiteboard at its right.
- */
-function meetingRoom(building: OfficeLayout['building'], agents: number): OfficeLayout['meetingRoom'] {
-  const pairs = Math.max(3, Math.ceil((agents - 1) / 2))
-  const x2 = -4.7
-  const x1 = Math.max(building.minX + 1.6, x2 - (pairs * MEETING_SEAT_PITCH + 0.5))
-  const table = { x1, x2, z: MEETING_TABLE_Z }
-  const minX = Math.max(building.minX, x1 - 1.4)
-  const whiteboard: Vec3 = [-3.75, 0, MEETING_TABLE_Z]
-  // The first agent presents at the whiteboard; the others sit along both sides, nearest the
-  // door first, alternating sides; any more stand along the lanes.
-  const columns: number[] = []
-  for (let x = table.x2 - 0.45; x >= table.x1 + 0.35; x -= MEETING_SEAT_PITCH) columns.push(x)
-  const seated = columns.flatMap((x): Placement[] => [
-    { position: [x, 0, table.z - 0.7], facing: 0, seated: true },
-    { position: [x, 0, table.z + 0.7], facing: Math.PI, seated: true },
-  ])
-  const standing = columns.flatMap((x): Placement[] => [
-    { position: [x, 0, MEETING_BACK_LANE_Z], facing: 0, seated: false },
-    { position: [x, 0, MEETING_FRONT_LANE_Z], facing: Math.PI, seated: false },
-  ])
-  const presenter: Placement = { position: [whiteboard[0] - 0.5, 0, table.z], facing: -Math.PI / 2, seated: false, label: 'Presenting at the whiteboard' }
-  return { minX, maxX: MEETING_ROOM_MAX_X, minZ: MEETING_ROOM_MIN_Z, maxZ: building.maxZ, table, tv: [x1 - 0.75, 0, table.z], whiteboard, seats: [presenter, ...seated, ...standing] }
-}
-
-/** The n-th place in the meeting room (0-based): the whiteboard, then the chairs, then standing room. */
-export function meetingSeat(index: number, layout: OfficeLayout = DEFAULT_LAYOUT): Placement {
-  const { seats } = layout.meetingRoom
-  return seats[index % seats.length]
-}
-
-/**
- * Where a station stands: a desk (seat n uses desk n; desks have no names), a place at the
- * meeting table (`meetingIndex` counts the agents already there), or a lounge seat.
- */
-export function placementFor(station: OfficeStation, layout: OfficeLayout = DEFAULT_LAYOUT, meetingIndex = 0): Placement {
-  const seat = Math.max(station.seat, 1) - 1
-  if (station.room === 'Lounge') {
-    const [x, y, z] = LOUNGE_SEATS[seat % LOUNGE_SEATS.length]
-    return { position: [x, y, z], facing: LOUNGE_FACING[seat % LOUNGE_SEATS.length], seated: true }
-  }
-  if (station.roomPosition === 'meeting-area') return meetingSeat(meetingIndex, layout)
-  const [x, y, z] = layout.desks[seat % layout.desks.length]
-  return { position: [x, y, z - 0.75], facing: 0, seated: station.state === 'Working' || station.state === 'Reviewing' }
-}
-
-const inGameRoom = ([x, z]: [number, number]) => x > GAME_ROOM.minX && x < GAME_ROOM.maxX && z > GAME_ROOM.minZ && z < GAME_ROOM.maxZ
-const inLounge = ([x, z]: [number, number]) => x > 1.5 && x < 7.8 && z < -0.6
-
-/**
- * Waypoints from one spot to another, so agents walk around furniture instead of through it:
- * inside along the aisle (lounge spots via the lounge lane), in or out through the entrance,
- * along the sidewalk, and up the gang's lane to the street food. The last point is always the
- * destination.
- */
-export function walkPath(from: [number, number], to: [number, number], layout: OfficeLayout = DEFAULT_LAYOUT): [number, number][] {
-  if (Math.hypot(to[0] - from[0], to[1] - from[1]) < 0.3) return [to]
-  return simplify(from, groundRoute(from, to, layout), to)
-}
-
-function groundRoute(from: [number, number], to: [number, number], layout: OfficeLayout): [number, number][] {
-  const { building, sideLaneX } = layout
-  const outside = (point: [number, number]) => point[1] > building.maxZ || point[0] < building.minX || (point[0] > building.maxX && !inGameRoom(point))
-  const inGang = ([x]: [number, number]) => x < building.minX
-  const route: [number, number][] = [from]
-  const room = layout.meetingRoom
-  const inMeetingRoom = ([x, z]: [number, number]) => x > room.minX && x < room.maxX && z > room.minZ && z < room.maxZ
-  // In the meeting room: along the lane behind the chairs (or past the table's end) to the door.
-  const meetingExit = ([x, z]: [number, number]): [number, number][] => x > room.table.x2 ? [[MEETING_DOOR_X, z], [MEETING_DOOR_X, AISLE_Z]]
-    : z > room.table.z ? [[x, MEETING_FRONT_LANE_Z], [MEETING_DOOR_X, MEETING_FRONT_LANE_Z], [MEETING_DOOR_X, AISLE_Z]]
-      : [[x, MEETING_BACK_LANE_Z], [MEETING_DOOR_X, MEETING_BACK_LANE_Z], [MEETING_DOOR_X, AISLE_Z]]
-  const toAisle = (point: [number, number]): [number, number][] => inGameRoom(point) ? [[point[0], GAME_LANE_Z], [LOUNGE_LANE_X, GAME_LANE_Z], [LOUNGE_LANE_X, AISLE_Z]]
-    : inLounge(point) ? [[LOUNGE_LANE_X, point[1]], [LOUNGE_LANE_X, AISLE_Z]] : inMeetingRoom(point) ? meetingExit(point) : [[point[0], AISLE_Z]]
-  const toSidewalk = (point: [number, number]): [number, number][] => inGang(point) ? [[sideLaneX, point[1]], [sideLaneX, SIDEWALK_Z]] : [[point[0], SIDEWALK_Z]]
-  if (!outside(from) && !outside(to)) {
-    route.push(...toAisle(from), ...toAisle(to).reverse())
-  } else if (inGang(from) && inGang(to)) {
-    route.push([sideLaneX, from[1]], [sideLaneX, to[1]])
-  } else if (outside(from) && outside(to)) {
-    route.push(...toSidewalk(from), ...toSidewalk(to).reverse())
-  } else if (outside(to)) {
-    route.push(...toAisle(from), [ENTRANCE_X, AISLE_Z], [ENTRANCE_X, SIDEWALK_Z], ...toSidewalk(to).reverse())
-  } else {
-    route.push(...toSidewalk(from), [ENTRANCE_X, SIDEWALK_Z], [ENTRANCE_X, AISLE_Z], ...toAisle(to).reverse())
-  }
-  route.push(to)
-  return route
-}
-
-/** Waypoints on lantai 2: along its aisle, into the bedroom between the bed columns, and out
- * through the sliding door onto the balcony. */
-function upperRoute(from: [number, number], to: [number, number], layout: OfficeLayout): [number, number][] {
-  const onBalcony = ([, z]: [number, number]) => z > BALCONY.minZ
-  const doorX = (BALCONY_DOOR.fromX + BALCONY_DOOR.toX) / 2
-  const inBedroom = ([x, z]: [number, number]) => x < PARTITION_X && z < -0.3
-  // Beds share columns, so the back row is reached through the gap beside its column.
-  const gapX = (x: number) => Math.min(x + DESK_PITCH / 2, PARTITION_X - 0.3)
-  const toAisle = (point: [number, number]): [number, number][] => onBalcony(point) ? [[point[0], BALCONY_LANE_Z], [doorX, BALCONY_LANE_Z], [doorX, AISLE_Z]]
-    : inBedroom(point) ? [[gapX(point[0]), point[1]], [gapX(point[0]), AISLE_Z]] : [[point[0], AISLE_Z]]
-  void layout
-  return [from, ...toAisle(from), ...toAisle(to).reverse(), to]
-}
-
-/**
- * Waypoints between any two spots, on either floor (y is the floor height). Changing floors goes
- * by the stairs: along the floor to the foot (or head) of the stairs, up (or down) them, and on.
- */
-export function walkPath3(from: Vec3, to: Vec3, layout: OfficeLayout = DEFAULT_LAYOUT): Vec3[] {
-  const flat = ([x, , z]: Vec3): [number, number] => [x, z]
-  const at = (y: number) => ([x, z]: [number, number]): Vec3 => [x, y, z]
-  const fromFloor = floorOf(from)
-  const toFloor = floorOf(to)
-  const route = (floor: Floor, a: [number, number], b: [number, number]) => Math.hypot(b[0] - a[0], b[1] - a[1]) < 0.3 ? [b]
-    : simplify(a, floor === 1 ? groundRoute(a, b, layout) : upperRoute(a, b, layout), b)
-  if (fromFloor === toFloor) return route(fromFloor, flat(from), flat(to)).map(at(fromFloor === 1 ? 0 : FLOOR_HEIGHT)).map((point, index, all) => index === all.length - 1 ? to : point)
-  const stairs: Vec3[] = [[STAIRS.lowX, 0, STAIRS.z], [STAIRS.highX, FLOOR_HEIGHT, STAIRS.z]]
-  const up = fromFloor === 1
-  return [
-    ...route(fromFloor, flat(from), up ? STAIRS_FOOT : STAIRS_HEAD).map(at(up ? 0 : FLOOR_HEIGHT)),
-    ...(up ? stairs : [...stairs].reverse()),
-    ...route(toFloor, up ? STAIRS_HEAD : STAIRS_FOOT, flat(to)).map(at(up ? FLOOR_HEIGHT : 0)).slice(0, -1),
-    to,
-  ]
-}
-
-function simplify(from: [number, number], route: [number, number][], to: [number, number]): [number, number][] {
-  // Drop waypoints that do not move the agent somewhere new, then any middle point of three on
-  // one straight line (so going out to the aisle and straight back becomes one straight walk).
-  const points: [number, number][] = [from]
-  for (const point of route.slice(1)) {
-    const last = points[points.length - 1]
-    if (Math.hypot(point[0] - last[0], point[1] - last[1]) > 0.2) points.push(point)
-  }
-  const aligned = (a: [number, number], b: [number, number], c: [number, number]) => (Math.abs(a[0] - b[0]) < 0.01 && Math.abs(b[0] - c[0]) < 0.01) || (Math.abs(a[1] - b[1]) < 0.01 && Math.abs(b[1] - c[1]) < 0.01)
-  for (let index = 1; index < points.length - 1;) {
-    if (aligned(points[index - 1], points[index], points[index + 1])) points.splice(index, 1)
-    else index += 1
-  }
-  const path = points.slice(1)
-  if (path.length === 0 || path[path.length - 1] !== to) path.push(to)
-  return path
-}
-
-/** How long an idle agent stays at one stop (walking included). */
-export const IDLE_STOP_MS = 32_000
-export const IDLE_ROUTE = ['lounge', 'galon', 'balkon', 'game', 'bakso', 'tidur', 'jalan', 'arcade', 'lesehan', 'kopi', 'dapur', 'balkon', 'game', 'tidur']
-
-export interface IdleAssignment { stop: IdleStop; placement: Placement }
-
-/**
- * Where each idle agent is at a given time. Purely decorative and deterministic (only the clock
- * and the seats matter, never agent data): each seat starts at a different point of the route, and
- * an agent whose stop is already full moves on along the route, so nobody shares a spot while
- * free ones remain.
- */
-export function idlePlan(seats: number[], time: number, layout: OfficeLayout = DEFAULT_LAYOUT, sleepers: number[] = []): Map<number, IdleAssignment> {
-  const plan = new Map<number, IdleAssignment>()
-  const taken = new Map<string, number>()
-  const step = Math.floor(time / IDLE_STOP_MS)
-  const stopAt = (index: number) => layout.idleStops.find((item) => item.key === IDLE_ROUTE[index % IDLE_ROUTE.length])!
-  // Sleepers (when the viewer sends idle agents to bed) stay in bed; they take the first beds.
-  const beds = layout.idleStops.find((item) => item.key === 'tidur')!
-  for (const seat of [...sleepers].sort((a, b) => a - b)) {
-    const used = taken.get('tidur') ?? 0
-    taken.set('tidur', used + 1)
-    plan.set(seat, { stop: beds, placement: beds.spots[used % beds.spots.length] })
-  }
-  for (const seat of [...seats].filter((item) => !plan.has(item)).sort((a, b) => a - b)) {
-    const start = step + (Math.max(seat, 1) - 1) * 3
-    let stop = stopAt(start)
-    for (let offset = 0; offset < IDLE_ROUTE.length; offset += 1) {
-      const candidate = stopAt(start + offset)
-      if ((taken.get(candidate.key) ?? 0) < candidate.spots.length) { stop = candidate; break }
-    }
-    const used = taken.get(stop.key) ?? 0
-    taken.set(stop.key, used + 1)
-    plan.set(seat, { stop, placement: stop.spots[used % stop.spots.length] })
-  }
-  return plan
-}
-
-/** One idle agent on its own. */
-export function idleStop(seat: number, time: number, layout: OfficeLayout = DEFAULT_LAYOUT): IdleAssignment {
-  return idlePlan([seat], time, layout).get(seat)!
-}
-
-/** Keeps a panned camera target inside the office grounds. */
-export function clampTarget(x: number, z: number, bounds: OfficeLayout['pan'] = DEFAULT_LAYOUT.pan): [number, number] {
+/** Keeps a panned camera target inside the given bounds. */
+export function clampTarget(x: number, z: number, bounds: Rect): [number, number] {
   return [Math.min(Math.max(x, bounds.minX), bounds.maxX), Math.min(Math.max(z, bounds.minZ), bounds.maxZ)]
 }
 
 /** The stock office (three agents), for callers that do not know the crew size. */
-export const DEFAULT_LAYOUT = createLayout(3)
-export const BUILDING = DEFAULT_LAYOUT.building
-export const SIDE_LANE_X = DEFAULT_LAYOUT.sideLaneX
-export const PAN_BOUNDS = DEFAULT_LAYOUT.pan
-export const IDLE_STOPS = DEFAULT_LAYOUT.idleStops
-export const DESKS = DEFAULT_LAYOUT.desks
+export const DEFAULT_LAYOUT: OfficeLayout = createLayout(3)
