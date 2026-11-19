@@ -1,8 +1,10 @@
 # Mission Board
 
-*Mission Board* is a read-only dashboard for your local [Hermes Agent](https://hermes-agent.nousresearch.com) and OpenCode crew. See who is working and what they are doing, plus the Kanban board, cron jobs, sessions, memory, folders and logs, all in one place. Everything is read through the `hermes` CLI, and nothing is ever changed.
+*Mission Board* is a Gather-style 3D virtual office and read-only mission control for your [Hermes Agent](https://hermes-agent.nousresearch.com) and OpenCode crew. See who is working and what they are doing, plus the Kanban board, cron jobs, sessions, memory, folders and logs, all in one place. Everything is read through the `hermes` CLI, and nothing is ever changed.
 
-![The 3D office: an agent at work at its desk, and idle agents playing ping-pong and console games in the game room](docs/screenshots/office.png)
+![The 3D office by day: seven rooms on one floor, with the yard, sidewalk and road outside](docs/screenshots/office.png)
+
+![The same office in the evening theme, with the lamps lit](docs/screenshots/office-night.png)
 
 ![Mission control statistics in the evening theme](docs/screenshots/mission-control.png)
 
@@ -17,7 +19,7 @@ curl -fsSL https://raw.githubusercontent.com/<OWNER>/mission-board/main/install.
 Then start it and open http://127.0.0.1:3002:
 
 ```bash
-mission-board                        # or: mission-board --port 3005
+mission-board                # or: mission-board --port 3005
 ```
 
 - **Run it in the background, and at boot (Linux):** add `--service` to install a systemd user service:
@@ -61,19 +63,21 @@ Checks: `npm run lint`, `npm test`, `npm run build`.
 - **Agents**: every agent on this machine, with model, gateway state and what it is doing in the office. Agents are discovered, not configured: every Hermes profile from `hermes profile list` is an agent, plus OpenCode when it is installed. New profiles appear automatically, and each agent gets its own character colours derived from its name.
 - **Office** (home page): the office fills the screen below the header. A HUD across the top shows crew active, gateways running, running/open tasks, the next cron run and (when any) failed CLI reads; chips link to their page. The **Panel** button opens one side panel with three tabs: **Crew** (crew snapshot and a clickable list of stations), **Stats** (statistics across every source, token usage, the Kanban status breakdown, runtime and what is up next; tiles link to their pages) and **Activity** (unattributed session metadata and messaging channels). The **Tasks**, **Calendar** and **Tokens** buttons open the Task Board, a month calendar of cron runs or token usage over the office, without leaving it (Esc or ✕ closes them; *Open full page* goes to the page). `#/dashboard` opens the Office.
 
-  The view switches between **3D** (the default) and **2D**, remembered per browser; browsers without WebGL stay on 2D. The 3D view (three.js via React Three Fiber, loaded only when used) is an office of several rooms with an Indonesian touch:
-  - the workspace: hot desking, with one unlabeled desk per agent in two rows (the building widens for a larger crew), and a glass-walled meeting room by the aisle: a long table with a chair for every agent (it grows with the crew), a TV on a stand showing a slide, and a whiteboard
-  - a lounge behind a glass partition, where the sofa faces a TV on the back wall
-  - a game room through a door from the lounge: ping-pong, two arcade machines, a console corner with beanbags, and a karambol (carrom) board
-  - a pantry with a galon (water-jug) dispenser
-  - split ACs on the walls (outdoor units behind the building) and suspended cool-white LED office lights
-  - the Merah Putih flag at the corner of the grounds
-  - in the alley beside the building, out of the main view: a bakso (meatball soup) cart and a kopi keliling (coffee bike), each with its vendor
+  The view switches between **3D** (the default) and **2D**, remembered per browser; browsers without WebGL stay on 2D. The 2D view is the original CSS-only office and is unchanged. The 3D view (three.js via React Three Fiber, loaded only when used) is one floor, laid out as a grid plan of seven rooms with an Indonesian touch:
+  - **Ruang Kerja**: the workspace, with hot desking (one unlabeled desk per agent; the room grows with the crew)
+  - **Ruang Rapat**: a meeting room with a long table and a chair for every agent, a TV showing a slide and a whiteboard
+  - **Lounge**: a sofa area facing a TV, with a pantry corner (a galon water-jug dispenser and a kitchen counter)
+  - **Game Room**: ping-pong, two arcade machines, beanbags and a karambol (carrom) board
+  - **Kamar Tidur**: a bedroom with one bed per agent
+  - **Papan Misi** (mission board): a wall board in its own room. It is decorative and links to the Kanban page (`#/task-board`)
+  - **Server Room**: a rack of servers. It is decorative and links to the cron Calendar page (`#/calendar`)
+  - outdoors: a yard with trees, a sidewalk with street lamps, a road, the Merah Putih flag, and a bakso (meatball soup) cart and a kopi keliling (coffee bike), each with its vendor
 
-  It follows the theme: day in light mode, evening in dark mode, when the office lights, street lamps and cart lamps light up. Only procedural textures are used, with no image or model files. Drag to rotate, scroll to zoom, and pan with right-drag, two fingers, the arrow keys, or the **Geser** button (which makes a plain drag pan). Panning stays within the grounds, and **Reset view** returns to the starting view.
+  The camera is fixed at about 55 degrees and the scene cannot be rotated. **Drag** to pan (clamped to the grounds), **scroll** to zoom, or use the **arrow keys** when the view has focus; **Reset view** returns to the starting view. Clicking the board or the server rack opens its page; for the keyboard there are two links, hidden until focused, "Open Papan Misi (Kanban)" and "Open Server Room (cron)". Agents walk along paths through the doors and never through walls or furniture.
 
-  The building has two floors; the buttons at the top left of the 3D view (or Page Up / Page Down) switch between them, each showing how many agents are on it. **Lantai 1** is the office. **Lantai 2**, up the stairs by the entrance, has a dorm bedroom with one bed per agent, a lesehan corner, a bathroom, and a ruko-style balcony with rattan chairs, a hammock, a clothes line and string lights; the lower floor turns into a closed building below it, and agents outside on the ground stay in view. Idle agents also go upstairs to sleep, nap in the hammock or sit on the balcony; the **💤 Tidur** button sends every idle agent to bed (remembered per browser, like the floor). Sleeping is decorative only, like the rest of the idle wandering.
-  Each agent has its own desk. An agent replying to a chat walks into the meeting room through its door: the first one presents at the whiteboard, the others take a chair; one running a cron job, tools or a Kanban task sits at its desk with a speech bubble saying what it is doing. Agents walk along the aisle and use the entrance, never through furniture or walls. Idle agents do not just sit: every 32 seconds each one moves on to another stop, such as relaxing in the lounge, ping-pong, arcade games or the console in the game room, getting water from the galon, the kitchen, bakso on the cart's stools, coffee at the bike, or a stroll to the flag or the bookshelf. A dashed bubble says where they are. This wandering is decorative only (the same clock-based route for everyone), and the Idle state itself comes from the server. Click an agent for its detail dialog, with three tabs: **Overview** (state, task, provenance, freshness), **Folder** (that agent's own folder, read-only, as on the Folders page) and **Memory** (its SOUL.md, MEMORY.md, USER.md and context files).
+  It follows the theme: day in light mode, evening in dark mode, when the office lights, street lamps and cart lamps light up. Only procedural textures are used, with no image or model files.
+
+  Each agent has its own desk. An agent replying to a chat walks into Ruang Rapat: the first one presents at the whiteboard, the others take a chair; one running a cron job, tools or a Kanban task sits at its desk with a speech bubble saying what it is doing. Idle agents do not just sit: every 32 seconds each one moves on to another stop, such as relaxing in the lounge, ping-pong, arcade games or the console in the game room, getting water from the galon, the kitchen, bakso on the cart's stools, coffee at the bike, a stroll outside, or a nap in Kamar Tidur. A dashed bubble says where they are. The **💤 Tidur** button (remembered per browser) sends every idle agent to bed in Kamar Tidur. This wandering and sleeping is decorative only (the same clock-based route for everyone), and the Idle state itself comes from the server. Click an agent for its detail dialog, with three tabs: **Overview** (state, task, provenance, freshness), **Folder** (that agent's own folder, read-only, as on the Folders page) and **Memory** (its SOUL.md, MEMORY.md, USER.md and context files).
 - **Task Board**: Hermes Kanban in board order (triage → todo → scheduled → ready → running → blocked → review → done) with search, assignee filter and priority. Tasks from every Kanban board are shown (not only the current one), with a board filter when there is more than one. Each column is at most as tall as the screen and scrolls on its own, so the board's sideways scrollbar stays in view; the strip above the board scrolls it (‹ ›) or jumps to a column by its status chip. Click a card for its full detail from `hermes kanban show <id> --json`: description, result or latest summary, workspace, branch, skills, model, timestamps, dependencies (clickable), runs, comments and activity. Free text is secret-redacted; only ids on the board snapshot can be opened.
 - **Calendar**: a month calendar of the cron runs of every agent (each job is labelled with its agent, and the calendar can be filtered by agent) (upcoming runs from today, repeating jobs, overdue runs and last-run outcomes, read from 5-field cron expressions and `every …` intervals, in the Hermes host's local time), plus the list of jobs with status, next run, overdue and last-run outcome. Paused jobs only show their last run.
 - **Activity**: the 20 most recent sessions with search.

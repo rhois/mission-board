@@ -1,7 +1,7 @@
 {
   "name": "mission-board",
   "version": "0.2.0",
-  "description": "Mission Board: a read-only dashboard for your Hermes Agent and OpenCode crew",
+  "description": "Mission Board: a Gather-style 3D virtual office and read-only mission control for your Hermes Agent and OpenCode crew",
   "license": "MIT",
   "type": "module",
   "repository": {

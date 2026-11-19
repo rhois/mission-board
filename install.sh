@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mission Board (Hermes 3D Virtual Office) installer for macOS, Linux and WSL2.
+# Mission Board installer for macOS, Linux and WSL2.
 #
 #   curl -fsSL https://raw.githubusercontent.com/<OWNER>/mission-board/main/install.sh | bash
 #

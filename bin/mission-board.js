@@ -6,7 +6,7 @@ const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.me
 const args = process.argv.slice(2)
 
 const help = `Mission Board ${packageJson.version}
-A 3D virtual office and read-only mission control for your Hermes Agent and OpenCode crew.
+A Gather-style 3D virtual office and read-only mission control for your Hermes Agent and OpenCode crew.
 
 Usage: mission-board [options]
        mission-board access-code <status|new|off>
