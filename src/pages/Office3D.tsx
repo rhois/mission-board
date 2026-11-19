@@ -155,6 +155,19 @@ function LabelProjector({ anchors, labels }: { anchors: Registry<THREE.Object3D>
 
 export interface ViewHandle { reset: () => void }
 
+/**
+ * Where the camera looks and how far it backs off. In landscape the layout's own framing fits
+ * the grounds; in a narrow (portrait) view it centres on the building and backs off until the
+ * building's width fits across (horizontal field of view = 2 atan(aspect tan 20°), with margin).
+ */
+function framing(layout: OfficeLayout, aspect: number): { focusX: number; scale: number } {
+  const { building, camera } = layout
+  if (aspect >= 1) return { focusX: camera.target[0], scale: 1 }
+  const width = building.maxX - building.minX + 4
+  const needed = (1.7 * width) / aspect
+  return { focusX: (building.minX + building.maxX) / 2, scale: Math.max(1, needed / Math.hypot(...camera.offset)) }
+}
+
 /** Fixed-azimuth view: drag (or one finger, or arrow keys) pans, scroll zooms; the target stays inside the grounds. */
 const Controls = forwardRef<ViewHandle, { keyTarget: HTMLElement | null; layout: OfficeLayout }>(function Controls({ keyTarget, layout }, handle) {
   const { camera, gl, size } = useThree()
@@ -162,11 +175,9 @@ const Controls = forwardRef<ViewHandle, { keyTarget: HTMLElement | null; layout:
   const { target: cameraTarget, offset: cameraOffset } = layout.camera
   const target = useMemo(() => new THREE.Vector3(...cameraTarget), [cameraTarget])
   const frame = useMemo(() => () => {
-    const aspect = size.width / Math.max(size.height, 1)
-    const offset = new THREE.Vector3(...cameraOffset)
-    // Narrow (portrait) views need to back off so the whole building fits across.
-    offset.setLength(offset.length() * Math.max(1, 1.2 / aspect))
-    const focus = target.clone().set(aspect < 1 ? cameraTarget[0] - 1.4 : cameraTarget[0], cameraTarget[1], aspect < 1 ? 0.8 : cameraTarget[2])
+    const { focusX, scale } = framing(layout, size.width / Math.max(size.height, 1))
+    const offset = new THREE.Vector3(...cameraOffset).multiplyScalar(scale)
+    const focus = target.clone().set(focusX, cameraTarget[1], cameraTarget[2])
     const orbit = controls.current
     // An undamped update applies and clears any momentum left from an earlier drag,
     // so it has to happen before the camera is placed, not after.
@@ -177,7 +188,7 @@ const Controls = forwardRef<ViewHandle, { keyTarget: HTMLElement | null; layout:
     orbit.target.copy(focus)
     orbit.update()
     orbit.enableDamping = true
-  }, [camera, size.width, size.height, target, cameraOffset, cameraTarget])
+  }, [camera, size.width, size.height, target, cameraOffset, cameraTarget, layout])
 
   useEffect(() => {
     const orbit = new OrbitControls(camera, gl.domElement)
@@ -200,9 +211,8 @@ const Controls = forwardRef<ViewHandle, { keyTarget: HTMLElement | null; layout:
   useEffect(() => {
     const orbit = controls.current
     if (!orbit) return
-    const aspect = size.width / Math.max(size.height, 1)
-    orbit.maxDistance = Math.hypot(...cameraOffset) * Math.max(1, 1.2 / aspect) * 1.4
-  }, [cameraOffset, size.width, size.height])
+    orbit.maxDistance = Math.hypot(...cameraOffset) * framing(layout, size.width / Math.max(size.height, 1)).scale * 1.4
+  }, [cameraOffset, layout, size.width, size.height])
   useEffect(() => {
     const orbit = controls.current
     if (!orbit || !keyTarget) return
@@ -265,7 +275,7 @@ export default function Office3D({ stations, onSelect }: { stations: OfficeStati
   const anchors = useRef(new Map<string, THREE.Object3D>())
   const labels = useRef(new Map<string, HTMLElement>())
   const view = useRef<ViewHandle>(null)
-    const [keyTarget, setKeyTarget] = useState<HTMLElement | null>(null)
+  const [keyTarget, setKeyTarget] = useState<HTMLElement | null>(null)
   const theme = useThemeName()
   const [sleepMode, setSleepMode] = useStoredFlag(SLEEP_KEY)
   const now = useClock(2000)
