@@ -11,7 +11,7 @@
 Works on macOS, Linux and Windows through WSL2. You need the Hermes Agent CLI (`hermes`) installed; `opencode` is optional. The installer downloads its own Node.js if you do not have Node.js 20 or newer.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<OWNER>/mission-board/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rhois/mission-board/main/install.sh | bash
 ```
 
 Then start it and open http://127.0.0.1:3002:
@@ -21,23 +21,23 @@ mission-board                # or: mission-board --port 3005
 ```
 
 - **Run it in the background, and at boot (Linux):** add `--service` to install a systemd user service:
-  `curl -fsSL https://raw.githubusercontent.com/<OWNER>/mission-board/main/install.sh | bash -s -- --service`
+  `curl -fsSL https://raw.githubusercontent.com/rhois/mission-board/main/install.sh | bash -s -- --service`
   To keep it running after you log out, also run `loginctl enable-linger $USER`.
 - **Update:** run the install command again.
 - **Remove:** add `--uninstall` (`... | bash -s -- --uninstall`).
 - **Other options:** `--version v0.2.0` installs a specific release; `--from-source` builds the latest `main` (needs `git`). See `install.sh --help`.
 - **On a server:** Mission Board listens on `127.0.0.1` only. From your laptop, run `ssh -L 3002:127.0.0.1:3002 user@server`, then open http://127.0.0.1:3002.
 
-Everything goes into `~/.local/share/mission-board`, plus the `mission-board` command in `~/.local/bin`. No sudo is used and nothing is installed system-wide. Prefer to read the script before running it? `curl -fsSL https://raw.githubusercontent.com/<OWNER>/mission-board/main/install.sh -o install.sh`, read it, then `bash install.sh`.
+Everything goes into `~/.local/share/mission-board`, plus the `mission-board` command in `~/.local/bin`. No sudo is used and nothing is installed system-wide. Prefer to read the script before running it? `curl -fsSL https://raw.githubusercontent.com/rhois/mission-board/main/install.sh -o install.sh`, read it, then `bash install.sh`.
 
-**With your own Node.js 20+:** download `mission-board.tgz` from the [latest release](https://github.com/<OWNER>/mission-board/releases/latest) and run `npm install -g ./mission-board.tgz`. Once the package is on npm this becomes `npm install -g mission-board` (or `npx mission-board`).
+**With your own Node.js 20+:** download `mission-board.tgz` from the [latest release](https://github.com/rhois/mission-board/releases/latest) and run `npm install -g ./mission-board.tgz`. Once the package is on npm this becomes `npm install -g mission-board` (or `npx mission-board`).
 
 ## Development
 
 Requires Node.js 20+ and `hermes` on the `PATH` of the shell that starts the server.
 
 ```bash
-git clone https://github.com/<OWNER>/mission-board.git
+git clone https://github.com/rhois/mission-board.git
 cd mission-board
 npm install
 npm run dev        # API on 127.0.0.1:3002 + Vite UI (open the URL Vite prints, usually http://localhost:5173)

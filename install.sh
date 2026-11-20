@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Mission Board installer for macOS, Linux and WSL2.
 #
-#   curl -fsSL https://raw.githubusercontent.com/<OWNER>/mission-board/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/rhois/mission-board/main/install.sh | bash
 #
 # Installs the latest release into ~/.local/share/mission-board and a `mission-board` command into
 # ~/.local/bin. Nothing is installed system-wide and sudo is never used. If no
@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-REPO="<OWNER>/mission-board"
+REPO="rhois/mission-board"
 PACKAGE="mission-board"
 COMMAND="mission-board"
 NODE_MAJOR_MIN=20
@@ -40,7 +40,7 @@ usage() {
   cat <<'HELP'
 Mission Board installer (macOS, Linux, WSL2)
 
-  curl -fsSL https://raw.githubusercontent.com/<OWNER>/mission-board/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/rhois/mission-board/main/install.sh | bash
   curl -fsSL .../install.sh | bash -s -- --service
 
 Options:

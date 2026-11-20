@@ -6,9 +6,9 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/<OWNER>/mission-board.git"
+    "url": "git+https://github.com/rhois/mission-board.git"
   },
-  "homepage": "https://github.com/<OWNER>/mission-board#readme",
+  "homepage": "https://github.com/rhois/mission-board#readme",
   "bin": {
     "mission-board": "bin/mission-board.js"
   },
